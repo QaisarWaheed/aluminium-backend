@@ -16,7 +16,7 @@ import { AccountsModule } from './features/Accounts/accounts.module';
     SalesModule,
     ExpenseModule,
     AccountsModule,
-    MongooseModule.forRoot('mongodb+srv://azibaliansari311_db_user:m736vEuu7K9JgOF6@cluster0.nktmmeq.mongodb.net/Aluminum?retryWrites=true&w=majority'),],
+    MongooseModule.forRoot('mongodb+srv://azibaliansari311_db_user:My10dollers$@cluster0.nktmmeq.mongodb.net/?appName=Cluster0'),],
 
   providers: [],
   controllers: [],
