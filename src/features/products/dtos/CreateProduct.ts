@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 import { ApiProperty } from '@nestjs/swagger';
-import type { Color, Unit } from '../entities/Product.entity';
+import type { Unit } from '../entities/Product.entity';
 
 export class CreateProductDto {
 
@@ -22,7 +22,7 @@ export class CreateProductDto {
   salesRate: number;
 
   @ApiProperty()
-  color: Color;
+  color: string;
 
   @ApiProperty()
   openingStock: number;

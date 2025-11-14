@@ -5,13 +5,6 @@ import mongoose from 'mongoose';
 
 export type Unit = 'ft' | 'pcs' | 'kg' | 'm' | 'sqft';
 
-export type Color =
-  | 'DULL'
-  | 'H23/PC‐RAL'
-  | 'SAHRA/BRN'
-  | 'BLACK/MULTI'
-  | 'WOODCOAT';
-
 @Schema({ timestamps: true })
 export class Product {
   declare _id: mongoose.Types.ObjectId;
@@ -36,8 +29,9 @@ export class Product {
   @Prop({ enum: ['ft', 'pcs', 'kg', 'm', 'sqft'] })
   unit: Unit;
 
+  @ApiProperty()
   @Prop()
-  color: Color;
+  color: string;
 
   @ApiProperty()
   @Prop()
