@@ -8,35 +8,40 @@ import { ApiTags } from '@nestjs/swagger';
 export class UserController {
 
 
-constructor(@Inject(UserService) private userService: UserService) {}
+  constructor(@Inject(UserService) private userService: UserService) { }
 
 
-@Post('create')
-async createUser(@Body() createUserDto: CreateUserDto) {
-  return this.userService.createUser(createUserDto);
-}
+  @Post('create')
+  async createUser(@Body() createUserDto: CreateUserDto) {
+    return this.userService.createUser(createUserDto);
+  }
 
-@Get('email/:email')
-async getUserByEmail(@Param('email') email: string) { 
+  @Post('login')
+  async login(@Body() loginDto: { email: string; password: string }) {
+    return this.userService.login(loginDto.email, loginDto.password);
+  }
 
-  return this.userService.getUserByEmail(email);
-}
-    
+  @Get('email/:email')
+  async getUserByEmail(@Param('email') email: string) {
 
-@Get('all')
-async getAllUsers() {
-  return this.userService.getAllUsers();
-}
+    return this.userService.getUserByEmail(email);
+  }
 
-@Put('update/:id')
-async updateUser(@Param('id') id: string, @Body() updateData: Partial<CreateUserDto>) {
-  return this.userService.updateUser(id, updateData);
-}
 
-@Delete('delete/:id')
-async deleteUser(@Param('id') id: string) {
-  return this.userService.deleteUser(id);
-}
+  @Get('all')
+  async getAllUsers() {
+    return this.userService.getAllUsers();
+  }
+
+  @Put('update/:id')
+  async updateUser(@Param('id') id: string, @Body() updateData: Partial<CreateUserDto>) {
+    return this.userService.updateUser(id, updateData);
+  }
+
+  @Delete('delete/:id')
+  async deleteUser(@Param('id') id: string) {
+    return this.userService.deleteUser(id);
+  }
 
 
 }
