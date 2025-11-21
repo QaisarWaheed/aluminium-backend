@@ -1,6 +1,5 @@
 /* eslint-disable prettier/prettier */
 import { ApiProperty } from "@nestjs/swagger";
-import { Supplier } from "../../supplier/supplier.entity";
 import { Product } from "src/features/products/entities/Product.entity";
 
 export class CreatePurchaseReturnDto {
@@ -11,8 +10,13 @@ export class CreatePurchaseReturnDto {
   @ApiProperty()
   returnDate: Date;
 
+  // supplier name (string)
   @ApiProperty()
-  supplier: Supplier[]
+  supplier: string
+
+  // reference to supplier id
+  @ApiProperty()
+  supplierId?: string;
 
   @ApiProperty()
   products: Product[];

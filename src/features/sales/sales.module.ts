@@ -12,16 +12,20 @@ import customerSchema from './customer/entities/customer.entity';
 import quotationSchema, { Quotation } from './quotation/quotation.entity';
 import { QuotationController } from './quotation/controllers/sale-invoice/quotation.controller';
 import { QuotationService } from './quotation/services/quotation-service/quotation.service';
- 
- 
+import draftSchema from './draft/draft.entity';
+import { DraftController } from './draft/controllers/draft/draft.controller';
+import { DraftService } from './draft/services/draft.service';
+
+
 
 @Module({
 
-imports:[MongooseModule.forFeature([{name:'SalesInvoice', schema:salesInvoiceSchema},
-    {name:'SalesReturn', schema:salesReturnSchema}, {name:'Customer', schema:customerSchema}, {name:'Quotation', schema:quotationSchema}
-])],
-controllers:[SaleInvoiceController, SalesReturnController, CustomerController, QuotationController],
-providers:[SaleInvoiceService, SalesReturnService, CustomerService, QuotationService]
+    imports: [MongooseModule.forFeature([{ name: 'SalesInvoice', schema: salesInvoiceSchema },
+    { name: 'SalesReturn', schema: salesReturnSchema }, { name: 'Customer', schema: customerSchema }, { name: 'Quotation', schema: quotationSchema }
+        , { name: 'Draft', schema: draftSchema }
+    ])],
+    controllers: [SaleInvoiceController, SalesReturnController, CustomerController, QuotationController, DraftController],
+    providers: [SaleInvoiceService, SalesReturnService, CustomerService, QuotationService, DraftService]
 
 })
-export class SalesModule {}
+export class SalesModule { }

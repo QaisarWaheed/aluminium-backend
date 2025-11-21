@@ -21,7 +21,7 @@ export class Expense {
     @Prop()
     amount: number;
 
-    @Prop()
+    @Prop({ type: String, enum: ['Cash', 'Card'], required: false })
     paymentMethod: paymentMethodType;
 
     @Prop()

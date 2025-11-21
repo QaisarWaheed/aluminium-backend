@@ -1,33 +1,45 @@
 /* eslint-disable prettier/prettier */
 import { ApiProperty } from "@nestjs/swagger";
+import { IsIn, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
 import type { paymentMethodType } from "../sales/salesInvoice/salesinvoice.entity";
 
 
 export class CreateExpensesDto {
 
 
-    @ApiProperty()
+    @ApiProperty({ required: true })
+    @IsNotEmpty()
+    @IsString()
     expenseNumber: string;
 
-    @ApiProperty()
+    @ApiProperty({ required: true })
+    @IsNotEmpty()
     date: Date;
 
-    @ApiProperty()
+    @ApiProperty({ required: true })
+    @IsString()
+    @IsOptional()
     description: string;
 
-    @ApiProperty()
+    @ApiProperty({ required: true })
+    @IsNumber()
     amount: number;
 
-    @ApiProperty()
+    @ApiProperty({ enum: ['Cash', 'Card'], required: false })
+    @IsOptional()
+    @IsIn(['Cash', 'Card'])
     paymentMethod: paymentMethodType;
 
-    @ApiProperty()
+    @ApiProperty({ required: false })
+    @IsOptional()
     reference: string;
 
-    @ApiProperty()
+    @ApiProperty({ required: false })
+    @IsOptional()
     remarks: string;
 
-    @ApiProperty()
+    @ApiProperty({ required: false })
+    @IsOptional()
     categoryType: string;
 
 

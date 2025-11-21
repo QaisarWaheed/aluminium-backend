@@ -1,7 +1,6 @@
 /* eslint-disable prettier/prettier */
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Product } from "src/features/products/entities/Product.entity";
-import { Supplier } from "../../supplier/supplier.entity";
 import mongoose from "mongoose";
 
 @Schema({ timestamps: true })
@@ -17,7 +16,12 @@ export class PurchaseReturn {
     returnDate: Date
 
     @Prop()
-    supplier: Supplier[]
+    // store supplier name
+    supplier: string
+
+    @Prop()
+    // store supplier id reference
+    supplierId: string
 
     @Prop()
     products: Product[]

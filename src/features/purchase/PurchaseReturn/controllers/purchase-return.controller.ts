@@ -17,6 +17,11 @@ export class PurchaseReturnController {
         return await this.purchaseReturnService.findAll()
     }
 
+    @Get('/next-number')
+    async getNextNumber() {
+        return await this.purchaseReturnService.getNextReturnNumber();
+    }
+
     @Get('/:returnNumber')
     async findById(@Param('returnNumber') returnNumber: string) {
         return await this.purchaseReturnService.findById(returnNumber)

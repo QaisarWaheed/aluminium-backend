@@ -26,12 +26,22 @@ export class PurchaseorderService {
     poNumber: string,
     data: CreatePurchaseOrderDto,
   ): Promise<PurchaseOrder | null> {
-    return await this.purchaseOrderModel.findOneAndUpdate({ poNumber }, data, {
-      new: true,
-    });
+    const result = await this.purchaseOrderModel.findOneAndUpdate(
+      { poNumber },
+      data,
+      { new: true, runValidators: true }
+    );
+    if (!result) {
+      throw new Error(`Purchase Order ${poNumber} not found`);
+    }
+    return result;
   }
 
   async deleteInvoice(poNumber: string) {
-    return await this.purchaseOrderModel.findOneAndDelete({ poNumber });
+    const result = await this.purchaseOrderModel.findOneAndDelete({ poNumber });
+    if (!result) {
+      throw new Error(`Purchase Order ${poNumber} not found`);
+    }
+    return { message: 'Purchase Order deleted successfully', poNumber };
   }
 }
