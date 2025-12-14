@@ -13,6 +13,7 @@ async function bootstrap() {
     .setDescription('The pos-inventory API description')
     .setVersion('1.0')
     .addTag('pos-inv')
+    .addBearerAuth()
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, documentFactory);

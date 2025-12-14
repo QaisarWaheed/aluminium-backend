@@ -7,20 +7,26 @@ import {
   Param,
   Post,
   Put,
+  Query,
+  UseGuards,
 } from '@nestjs/common';
 import { ProductService } from '../services/product.service';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { CreateProductDto } from '../dtos/CreateProduct';
+import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { PaginationDto } from '../../../common/dtos/pagination.dto';
 
 @ApiTags('Products')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('products')
 export class ProductsController {
-  constructor(private readonly productService: ProductService) { }
+  constructor(private readonly productService: ProductService) {}
 
   @Get()
-  async getAllProducts() {
-    const products = await this.productService.findAll();
-    console.log("Fetched all products");
+  async getAllProducts(@Query() paginationDto: PaginationDto) {
+    const products = await this.productService.findAll(paginationDto);
+    console.log('Fetched products');
     return products;
   }
 
@@ -31,12 +37,15 @@ export class ProductsController {
 
   @Post()
   async createProduct(@Body() productData: CreateProductDto) {
-    console.log("Creating product with data:", productData);
+    console.log('Creating product with data:', productData);
     return this.productService.addProduct(productData);
   }
 
   @Put('/:id')
-  async updateProduct(@Param('id') id: string, @Body() productData: Partial<CreateProductDto>) {
+  async updateProduct(
+    @Param('id') id: string,
+    @Body() productData: Partial<CreateProductDto>,
+  ) {
     return this.productService.updateProduct(id, productData);
   }
 

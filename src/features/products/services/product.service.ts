@@ -5,18 +5,36 @@ import { Product } from '../entities/Product.entity';
 import { CreateProductDto } from '../dtos/CreateProduct';
 import { InjectModel } from '@nestjs/mongoose';
 import mongoose from 'mongoose';
+import { PaginationDto } from '../../../common/dtos/pagination.dto';
+import { PaginatedResult } from '../../../common/interfaces/paginated-result.interface';
 
 @Injectable()
 export class ProductService {
   constructor(
     @InjectModel('Product') private readonly productModel: Model<Product>,
-  ) { }
+  ) {}
 
-  async findAll(): Promise<Product[]> {
+  async findAll(
+    paginationDto: PaginationDto = { page: 1, limit: 10 },
+  ): Promise<PaginatedResult<Product>> {
     try {
-      const products = await this.productModel.find().exec();
-      console.log('Products from DB:', products);
-      return products;
+      const { page = 1, limit = 10 } = paginationDto;
+      const skip = (page - 1) * limit;
+
+      const [data, total] = await Promise.all([
+        this.productModel.find().skip(skip).limit(limit).exec(),
+        this.productModel.countDocuments().exec(),
+      ]);
+
+      return {
+        data,
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
     } catch (error) {
       throw new Error('Error fetching products');
     }
@@ -36,7 +54,6 @@ export class ProductService {
 
   async addProduct(product: CreateProductDto): Promise<Product> {
     try {
-
       const newProduct = await this.productModel.create(product);
       return newProduct;
     } catch (error) {
@@ -52,7 +69,6 @@ export class ProductService {
       return await this.productModel
         .findByIdAndUpdate(_id, product, { new: true })
         .exec();
-
     } catch (error) {
       throw new Error('Error updating product');
     }
