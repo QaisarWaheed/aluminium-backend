@@ -1,12 +1,27 @@
-/* eslint-disable prettier/prettier */
+import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+
 export class CreateDraftDto {
-    key: string;
-    data: any;
-    userId?: string;
-    title?: string;
+  @IsString()
+  @IsNotEmpty()
+  key: string;
+
+  @IsOptional()
+  data: any;
+
+  @IsString()
+  @IsOptional()
+  userId?: string;
+
+  @IsString()
+  @IsOptional()
+  title?: string;
 }
 
 export class UpdateDraftDto {
-    data?: any;
-    title?: string;
+  @IsOptional()
+  data?: any;
+
+  @IsString()
+  @IsOptional()
+  title?: string;
 }
