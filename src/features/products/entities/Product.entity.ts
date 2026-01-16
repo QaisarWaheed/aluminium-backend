@@ -3,7 +3,13 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { ApiProperty } from '@nestjs/swagger';
 import mongoose from 'mongoose';
 
-export type Unit = 'ft' | 'pcs' | 'kg' | 'm' | 'sqft';
+export enum Unit {
+  FT = 'ft',
+  PCS = 'pcs',
+  KG = 'kg',
+  M = 'm',
+  SQFT = 'sqft',
+}
 
 @Schema({ timestamps: true })
 export class Product {
@@ -26,7 +32,7 @@ export class Product {
   length: number;
 
   @ApiProperty()
-  @Prop({ enum: ['ft', 'pcs', 'kg', 'm', 'sqft'] })
+  @Prop({ enum: Unit })
   unit: Unit;
 
   @ApiProperty()
@@ -49,7 +55,6 @@ export class Product {
   @ApiProperty()
   @Prop()
   description: string;
-
 
   @ApiProperty()
   @Prop()
