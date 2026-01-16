@@ -1,53 +1,44 @@
 /* eslint-disable prettier/prettier */
-import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
-import { ApiProperty } from "@nestjs/swagger";
-import mongoose from "mongoose";
-import type { paymentType } from "src/features/sales/customer/entities/customer.entity";
-
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { ApiProperty } from '@nestjs/swagger';
+import mongoose from 'mongoose';
+import { PaymentType } from 'src/features/sales/customer/entities/customer.entity';
 
 @Schema({ timestamps: true })
 export class Supplier {
+  declare _id: mongoose.Types.ObjectId;
 
-    declare _id: mongoose.Types.ObjectId;
+  @ApiProperty()
+  @Prop()
+  name: string;
 
+  @ApiProperty()
+  @Prop()
+  phone: string;
 
+  @ApiProperty()
+  @Prop()
+  email: string;
 
+  @ApiProperty()
+  @Prop()
+  address: string;
 
-    @ApiProperty()
-    @Prop()
-    name: string;
+  @ApiProperty()
+  @Prop()
+  city: string;
 
-    @ApiProperty()
-    @Prop()
-    phone: string;
+  @ApiProperty()
+  @Prop()
+  openingBalance: number;
 
-    @ApiProperty()
-    @Prop()
-    email: string;
+  @ApiProperty({ enum: PaymentType })
+  @Prop({ enum: PaymentType })
+  paymentType: PaymentType;
 
-    @ApiProperty()
-    @Prop()
-    address: string;
+  declare createdAt: Date;
 
-    @ApiProperty()
-    @Prop()
-    city: string;
-
-
-
-    @ApiProperty()
-    @Prop()
-    openingBalance: number;
-
-    @ApiProperty()
-    @Prop()
-    paymentType: paymentType;
-
-    declare createdAt: Date;
-
-    declare updatedAt: Date;
-
-
+  declare updatedAt: Date;
 }
 const SupplierSchema = SchemaFactory.createForClass(Supplier);
 export { SupplierSchema };

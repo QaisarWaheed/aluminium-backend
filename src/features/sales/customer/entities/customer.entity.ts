@@ -3,7 +3,10 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { ApiProperty } from '@nestjs/swagger';
 import mongoose from 'mongoose';
 
-export type paymentType = 'Credit' | 'Debit';
+export enum PaymentType {
+  CREDIT = 'Credit',
+  DEBIT = 'Debit',
+}
 
 @Schema({ timestamps: true })
 export class Customer {
@@ -32,15 +35,14 @@ export class Customer {
   @Prop()
   creditLimit: number;
 
-  @ApiProperty()
-  @Prop()
-  paymentType: paymentType;
+  @ApiProperty({ enum: PaymentType })
+  @Prop({ enum: PaymentType })
+  paymentType: PaymentType;
 
   declare createdAt: Date;
 
   declare updatedAt: Date;
 }
 const customerSchema = SchemaFactory.createForClass(Customer);
-
 
 export default customerSchema;
