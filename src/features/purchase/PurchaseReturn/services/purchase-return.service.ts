@@ -28,15 +28,16 @@ export class PurchaseReturnService {
 
     async createInvoice(data: CreatePurchaseReturnDto): Promise<PurchaseReturn> {
         // Normalize supplier fields: ensure supplier is a string (name) and supplierId is set if provided
-        const payload: any = { ...data };
+        const payload = { ...data } as Record<string, unknown>;
         if (payload.supplier && typeof payload.supplier !== 'string') {
             // try to extract name
-            if (Array.isArray(payload.supplier) && payload.supplier.length > 0) {
-                payload.supplier = payload.supplier[0].name ?? String(payload.supplier[0]);
-            } else if (typeof payload.supplier === 'object') {
-                payload.supplier = payload.supplier.name ?? String(payload.supplier);
+            const s = payload.supplier as { name?: string } | Array<{ name?: string }>;
+            if (Array.isArray(s) && s.length > 0) {
+                payload.supplier = s[0].name ?? String(s[0]);
+            } else if (!Array.isArray(s) && typeof s === 'object') {
+                payload.supplier = s.name ?? String(s);
             } else {
-                payload.supplier = String(payload.supplier);
+                payload.supplier = String(s);
             }
         }
         if (!payload.supplier && payload.supplierId) {
@@ -47,14 +48,15 @@ export class PurchaseReturnService {
     }
 
     async updateInvoice(returnNumber: string, data: CreatePurchaseReturnDto): Promise<PurchaseReturn | null> {
-        const payload: any = { ...data };
+        const payload = { ...data } as Record<string, unknown>;
         if (payload.supplier && typeof payload.supplier !== 'string') {
-            if (Array.isArray(payload.supplier) && payload.supplier.length > 0) {
-                payload.supplier = payload.supplier[0].name ?? String(payload.supplier[0]);
-            } else if (typeof payload.supplier === 'object') {
-                payload.supplier = payload.supplier.name ?? String(payload.supplier);
+            const s = payload.supplier as { name?: string } | Array<{ name?: string }>;
+            if (Array.isArray(s) && s.length > 0) {
+                payload.supplier = s[0].name ?? String(s[0]);
+            } else if (!Array.isArray(s) && typeof s === 'object') {
+                payload.supplier = s.name ?? String(s);
             } else {
-                payload.supplier = String(payload.supplier);
+                payload.supplier = String(s);
             }
         }
         return await this.purchaseReturnModel.findOneAndUpdate({ returnNumber }, payload, { new: true })
@@ -69,7 +71,7 @@ export class PurchaseReturnService {
     async getNextReturnNumber(): Promise<string> {
         const docs = await this.purchaseReturnModel.find().select('returnNumber').lean();
         const nums = (docs || [])
-            .map((d: any) => {
+            .map((d: PurchaseReturn) => {
                 const match = String(d.returnNumber || '').match(/PRET-(\d{4})/i);
                 return match ? parseInt(match[1], 10) : null;
             })

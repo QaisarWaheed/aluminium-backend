@@ -1,12 +1,18 @@
-import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Put,
+} from '@nestjs/common';
 import { RecieptVoucherService } from '../services/reciept-voucher.service';
 import { CreateRecipetVoucherDto } from '../createReciept.dto';
 
 @Controller('reciept-voucher')
 export class RecieptVoucherController {
-
-  constructor(private readonly recieptVoucher: RecieptVoucherService) { }
-
+  constructor(private readonly recieptVoucher: RecieptVoucherService) {}
 
   @Get()
   async getAllReceiptVouchers() {
@@ -23,7 +29,6 @@ export class RecieptVoucherController {
     return this.recieptVoucher.addReceiptVoucher(data);
   }
 
-
   @Put('/:id')
   async updateReceiptVoucher(@Param('id') id: string, @Body() data: any) {
     return this.recieptVoucher.updateReceiptVoucher(id, data);
@@ -33,6 +38,4 @@ export class RecieptVoucherController {
   async deleteReceiptVoucher(@Param('id') id: string) {
     return this.recieptVoucher.deleteReceiptVoucher(id);
   }
-
-
 }

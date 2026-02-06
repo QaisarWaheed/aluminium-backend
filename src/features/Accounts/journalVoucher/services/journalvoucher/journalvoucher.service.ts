@@ -19,13 +19,9 @@ function parseMMDDYYYY(dateStr?: string): Date | undefined {
 @Injectable({ scope: Scope.REQUEST })
 export class JournalvoucherService {
   constructor(
- 
-    @InjectModel(JournalVoucher.name,)
+    @InjectModel(JournalVoucher.name)
     private model: Model<JournalVoucher>,
-    
   ) {}
-
-  
 
   async create(createJournalVoucherDto: CreateJournalVoucherDto) {
     return await this.model.create(createJournalVoucherDto);

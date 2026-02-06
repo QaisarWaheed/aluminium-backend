@@ -14,14 +14,25 @@ import { PurchaseorderController } from './purchaseOrder/controllers/purchaseord
 import { PurchaseorderService } from './purchaseOrder/services/purchaseorder.service';
 
 @Module({
-
-    imports:[MongooseModule.forFeature([{name:'Supplier', schema:SupplierSchema},
-        {name:'PurchaseInvoice', schema:purchaseInvoiceSchema},
-        {name:'PurchaseReturn', schema:purchaseReturnSchema},
-        {name:'PurchaseOrder', schema:purchaseOrderSchema}
-    ])],
-   controllers:[SupplierController, PurchaseInvoiceController, PurchaseReturnController, PurchaseorderController],
-   providers:[SupplierService, PurchaseInvoiceService, PurchaseReturnService, PurchaseorderService]
-
+  imports: [
+    MongooseModule.forFeature([
+      { name: 'Supplier', schema: SupplierSchema },
+      { name: 'PurchaseInvoice', schema: purchaseInvoiceSchema },
+      { name: 'PurchaseReturn', schema: purchaseReturnSchema },
+      { name: 'PurchaseOrder', schema: purchaseOrderSchema },
+    ]),
+  ],
+  controllers: [
+    SupplierController,
+    PurchaseInvoiceController,
+    PurchaseReturnController,
+    PurchaseorderController,
+  ],
+  providers: [
+    SupplierService,
+    PurchaseInvoiceService,
+    PurchaseReturnService,
+    PurchaseorderService,
+  ],
 })
 export class PurchaseModule {}

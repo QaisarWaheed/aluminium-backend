@@ -9,7 +9,9 @@ describe('PurchaseInvoiceController', () => {
       controllers: [PurchaseInvoiceController],
     }).compile();
 
-    controller = module.get<PurchaseInvoiceController>(PurchaseInvoiceController);
+    controller = module.get<PurchaseInvoiceController>(
+      PurchaseInvoiceController,
+    );
   });
 
   it('should be defined', () => {

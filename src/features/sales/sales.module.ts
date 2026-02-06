@@ -16,16 +16,29 @@ import draftSchema from './draft/draft.entity';
 import { DraftController } from './draft/controllers/draft/draft.controller';
 import { DraftService } from './draft/services/draft.service';
 
-
-
 @Module({
-
-    imports: [MongooseModule.forFeature([{ name: 'SalesInvoice', schema: salesInvoiceSchema },
-    { name: 'SalesReturn', schema: salesReturnSchema }, { name: 'Customer', schema: customerSchema }, { name: 'Quotation', schema: quotationSchema }
-        , { name: 'Draft', schema: draftSchema }
-    ])],
-    controllers: [SaleInvoiceController, SalesReturnController, CustomerController, QuotationController, DraftController],
-    providers: [SaleInvoiceService, SalesReturnService, CustomerService, QuotationService, DraftService]
-
+  imports: [
+    MongooseModule.forFeature([
+      { name: 'SalesInvoice', schema: salesInvoiceSchema },
+      { name: 'SalesReturn', schema: salesReturnSchema },
+      { name: 'Customer', schema: customerSchema },
+      { name: 'Quotation', schema: quotationSchema },
+      { name: 'Draft', schema: draftSchema },
+    ]),
+  ],
+  controllers: [
+    SaleInvoiceController,
+    SalesReturnController,
+    CustomerController,
+    QuotationController,
+    DraftController,
+  ],
+  providers: [
+    SaleInvoiceService,
+    SalesReturnService,
+    CustomerService,
+    QuotationService,
+    DraftService,
+  ],
 })
-export class SalesModule { }
+export class SalesModule {}

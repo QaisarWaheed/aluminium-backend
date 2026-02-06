@@ -10,8 +10,8 @@ export class CategoryService {
   ) {}
 
   async create(payload: Partial<Category>): Promise<Category> {
-    const created = await this.categoryModel.create(payload as any);
-    return created as unknown as Category;
+    const created = await this.categoryModel.create(payload);
+    return created;
   }
 
   async findAll(): Promise<Category[]> {

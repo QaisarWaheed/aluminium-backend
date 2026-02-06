@@ -1,4 +1,5 @@
 /* eslint-disable prettier/prettier */
+import type { DraftData } from '../interfaces/draft-data.interface';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import mongoose from 'mongoose';
 
@@ -11,7 +12,7 @@ export class Draft {
     key: string;
 
     @Prop({ type: mongoose.Schema.Types.Mixed, required: true })
-    data: any;
+    data: DraftData;
 
     @Prop({ type: String, required: false })
     userId?: string;

@@ -1,4 +1,5 @@
 import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import type { DraftData } from '../interfaces/draft-data.interface';
 
 export class CreateDraftDto {
   @IsString()
@@ -6,7 +7,7 @@ export class CreateDraftDto {
   key: string;
 
   @IsOptional()
-  data: any;
+  data: DraftData;
 
   @IsString()
   @IsOptional()
@@ -19,7 +20,7 @@ export class CreateDraftDto {
 
 export class UpdateDraftDto {
   @IsOptional()
-  data?: any;
+  data?: DraftData;
 
   @IsString()
   @IsOptional()

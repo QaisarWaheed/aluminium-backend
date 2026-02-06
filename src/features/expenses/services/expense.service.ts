@@ -17,8 +17,7 @@ export class ExpenseService {
     try {
       return await this.expenseModel.find().exec();
     } catch (error) {
-      console.log(error)
-      throw new Error('Error fetching products', error);
+      throw new Error('Error fetching products', { cause: error });
     }
   }
 
@@ -30,7 +29,7 @@ export class ExpenseService {
       }
       return expense;
     } catch (error) {
-      throw new Error('Error fetching product by ID');
+      throw new Error('Error fetching product by ID', { cause: error });
     }
   }
 
@@ -41,32 +40,32 @@ export class ExpenseService {
 
       // Create a payment voucher for this expense so ledger/reporting picks it up
       try {
-        const amt = (saved as any).amount || 0;
-        const pMethod = (saved as any).paymentMethod;
+        const amt = saved.amount || 0;
+        const pMethod = saved.paymentMethod;
         if (amt > 0 && (pMethod === 'Cash' || pMethod === 'Card')) {
           const voucher = {
             voucherNumber: `PV-${Date.now()}`,
-            voucherDate: (saved as any).date || new Date(),
-            paidTo: (saved as any).description || 'Expense',
+            voucherDate: saved.date || new Date(),
+            paidTo: saved.description || 'Expense',
             amount: amt,
-            referenceNumber: (saved as any).expenseNumber || '',
+            referenceNumber: saved.expenseNumber || '',
             paymentMode: pMethod,
-            remarks: (saved as any).remarks || '',
+            remarks: saved.remarks || '',
           };
           // create voucher but do not block expense creation if this fails
           await this.paymentVoucherModel.create(voucher);
         }
-      } catch (err) {
+      } catch (err: unknown) {
         // best-effort: log and continue
-        console.warn('Failed to create payment voucher for expense:', err?.message ?? err);
+        console.warn('Failed to create payment voucher for expense:', err instanceof Error ? err.message : err);
       }
 
       return saved;
-    } catch (error: any) {
-      if (error.name === 'ValidationError') {
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'ValidationError') {
         throw new BadRequestException(error.message);
       }
-      throw new InternalServerErrorException(error.message);
+      throw new InternalServerErrorException(error instanceof Error ? error.message : 'Unknown error');
     }
   }
 
@@ -79,7 +78,7 @@ export class ExpenseService {
         .findOneAndUpdate({ expenseNumber }, expense, { new: true })
         .exec();
     } catch (error) {
-      throw new Error('Error updating product');
+      throw new Error('Error updating product', { cause: error });
     }
   }
 

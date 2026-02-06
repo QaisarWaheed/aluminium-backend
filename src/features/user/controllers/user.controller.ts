@@ -1,4 +1,13 @@
-import { Body, Controller, Delete, Get, Inject, Param, Post, Put } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Inject,
+  Param,
+  Post,
+  Put,
+} from '@nestjs/common';
 import { UserService } from '../services/user.service';
 import { CreateUserDto } from '../dtos/create-user-dto';
 import { ApiTags } from '@nestjs/swagger';
@@ -6,10 +15,7 @@ import { ApiTags } from '@nestjs/swagger';
 @ApiTags('User')
 @Controller('user')
 export class UserController {
-
-
-  constructor(@Inject(UserService) private userService: UserService) { }
-
+  constructor(@Inject(UserService) private userService: UserService) {}
 
   @Post('create')
   async createUser(@Body() createUserDto: CreateUserDto) {
@@ -23,10 +29,8 @@ export class UserController {
 
   @Get('email/:email')
   async getUserByEmail(@Param('email') email: string) {
-
     return this.userService.getUserByEmail(email);
   }
-
 
   @Get('all')
   async getAllUsers() {
@@ -34,7 +38,10 @@ export class UserController {
   }
 
   @Put('update/:id')
-  async updateUser(@Param('id') id: string, @Body() updateData: Partial<CreateUserDto>) {
+  async updateUser(
+    @Param('id') id: string,
+    @Body() updateData: Partial<CreateUserDto>,
+  ) {
     return this.userService.updateUser(id, updateData);
   }
 
@@ -42,9 +49,4 @@ export class UserController {
   async deleteUser(@Param('id') id: string) {
     return this.userService.deleteUser(id);
   }
-
-
 }
-
-
-

@@ -21,4 +21,4 @@ import { ColorService } from './services/color.service';
   providers: [ProductService, CategoryService, ColorService],
   controllers: [ProductsController, CategoryController, ColorController],
 })
-export class ProductsModule { }
+export class ProductsModule {}

@@ -8,13 +8,9 @@ import { JournalvoucherService } from './services/journalvoucher/journalvoucher.
   imports: [
     MongooseModule.forFeature([
       { name: JournalVoucher.name, schema: JournalVoucherSchema },
-    ])],
-    controllers:[JournalVoucherController],
-    providers:[JournalvoucherService]
-   
-
-
-
- 
+    ]),
+  ],
+  controllers: [JournalVoucherController],
+  providers: [JournalvoucherService],
 })
 export class JournalVoucher {}
