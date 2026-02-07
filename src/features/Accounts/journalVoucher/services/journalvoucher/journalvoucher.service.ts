@@ -55,4 +55,13 @@ export class JournalvoucherService {
   async findByVoucherNumber(voucherNumber: string) {
     return await this.model.findOne({ voucherNumber }).exec();
   }
+
+  async updateByVoucherNumber(
+    voucherNumber: string,
+    updateDto: Partial<CreateJournalVoucherDto>,
+  ) {
+    return await this.model
+      .findOneAndUpdate({ voucherNumber }, updateDto, { new: true })
+      .exec();
+  }
 }
