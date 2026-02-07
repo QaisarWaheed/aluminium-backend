@@ -97,12 +97,24 @@ export class SaleInvoiceService {
         throw new NotFoundException('Invoice not found');
       }
 
-      // Update Ledger Entry logic
-      // Ideally we should find key by voucherNumber and update it
-      // For now we will just log that update happened, or we can find and update.
-      // Since JournalVoucherService doesn't have update method exposed easily by number, we skip for now strictly or add todo.
-      // Implementation Plan 8.2 says "Update existing entry".
-      // We will need to implement update logic in JournalVoucherService explicitly later.
+      // 4. Update Ledger Entry
+      // Prepare update data similar to create
+      const customerName = Array.isArray(data.customer)
+        ? data.customer[0]?.name || 'Unknown'
+        : (data.customer as any)?.name || 'Unknown';
+
+      const journalUpdate: Partial<CreateJournalVoucherDto> = {
+        date: data.invoiceDate,
+        accountNumber: customerName, // Update customer caption if changed
+        debit: data.totalNetAmount || 0,
+        credit: data.receivedAmount || 0,
+        description: `Bill Updated - ${invoiceNumber}`,
+      };
+
+      await this.journalVoucherService.updateByVoucherNumber(
+        invoiceNumber,
+        journalUpdate,
+      );
 
       return updatedInvoice;
     } catch (error) {
