@@ -12,5 +12,6 @@ import { JournalvoucherService } from './services/journalvoucher/journalvoucher.
   ],
   controllers: [JournalVoucherController],
   providers: [JournalvoucherService],
+  exports: [JournalvoucherService],
 })
 export class JournalVoucher {}

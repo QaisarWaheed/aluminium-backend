@@ -16,8 +16,11 @@ import draftSchema from './draft/draft.entity';
 import { DraftController } from './draft/controllers/draft/draft.controller';
 import { DraftService } from './draft/services/draft.service';
 
+import { JournalVoucher } from '../Accounts/journalVoucher/journalVoucher';
+
 @Module({
   imports: [
+    JournalVoucher,
     MongooseModule.forFeature([
       { name: 'SalesInvoice', schema: salesInvoiceSchema },
       { name: 'SalesReturn', schema: salesReturnSchema },

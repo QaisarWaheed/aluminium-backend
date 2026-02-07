@@ -46,4 +46,10 @@ export class CreateSalesInvoiceDto {
 
     @ApiProperty()
     totalNetAmount: number;
+
+    @ApiProperty()
+    receivedAmount: number;
+
+    @ApiProperty()
+    pendingAmount: number;
 }

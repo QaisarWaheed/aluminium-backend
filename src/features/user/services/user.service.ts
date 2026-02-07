@@ -26,7 +26,7 @@ export class UserService {
     password: string,
   ): Promise<{
     success: boolean;
-    user?: Omit<User, 'password'>;
+    user?: { _id: string; name: string; email: string; CreatedAt?: Date; UpdatedAt?: Date };
     message?: string;
   }> {
     // Check hardcoded credentials first
@@ -34,7 +34,7 @@ export class UserService {
       return {
         success: true,
         user: {
-          _id: new Types.ObjectId(),
+          _id: new Types.ObjectId().toString(),
           name: 'Hassan Saleem',
           email: 'hassansaleem@gmail.com',
           CreatedAt: new Date(),
@@ -58,7 +58,13 @@ export class UserService {
     // Don't send password back
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...userWithoutPassword } = user.toObject();
-    return { success: true, user: userWithoutPassword };
+    return { 
+      success: true, 
+      user: { 
+        ...userWithoutPassword, 
+        _id: userWithoutPassword._id.toString() 
+      } 
+    };
   }
 
   async updateUser(

@@ -53,6 +53,12 @@ export class SalesInvoice {
     @Prop({ type: Number })
     totalNetAmount: number;
 
+    @Prop({ type: Number, default: 0 })
+    receivedAmount: number;
+
+    @Prop({ type: Number, default: 0 })
+    pendingAmount: number;
+
     declare createdAt: Date;
     declare updatedAt: Date;
 }
