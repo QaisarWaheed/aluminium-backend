@@ -32,9 +32,13 @@ async function bootstrap() {
   app.useGlobalFilters(new AllExceptionsFilter());
 
   app.enableCors({
-    origin: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    origin: [
+      'https://pos-and-inventory-git-main-azibaliansari311-6622s-projects.vercel.app',
+      'https://pos-and-inventory-git-main-azibaliansari311-6622s-projects.vercel.app/auth',
+    ],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   await app.listen(process.env.PORT ?? 3000);
