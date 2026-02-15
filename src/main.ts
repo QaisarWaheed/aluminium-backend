@@ -1,12 +1,14 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable prettier/prettier */
 import { NestFactory } from '@nestjs/core';
+import dns from 'dns';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
+  dns.setServers(['8.8.8.8', '8.8.4.4']);
   const app = await NestFactory.create(AppModule);
 
   const config = new DocumentBuilder()
