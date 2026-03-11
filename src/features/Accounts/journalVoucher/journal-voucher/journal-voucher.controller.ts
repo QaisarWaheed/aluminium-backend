@@ -18,7 +18,7 @@ export class JournalVoucherController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
-    const filters: any = {};
+    const filters: { startDate?: string; endDate?: string } = {};
     if (startDate) filters.startDate = startDate;
     if (endDate) filters.endDate = endDate;
     return await this.journalVoucherService.findAll(

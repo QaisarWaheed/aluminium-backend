@@ -1,52 +1,48 @@
 /* eslint-disable prettier/prettier */
-import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Put,
+} from '@nestjs/common';
 import { PurchaseorderService } from '../services/purchaseorder.service';
 
 import { CreatePurchaseOrderDto } from '../dtos/CreatePurchaseOrder.dto';
 
 @Controller('purchaseorder')
 export class PurchaseorderController {
-    constructor(private readonly purchaseOrderService: PurchaseorderService) { }
+  constructor(private readonly purchaseOrderService: PurchaseorderService) {}
 
-    @Get()
-    async findAll() {
-        return await this.purchaseOrderService.findAll();
-    }
+  @Get()
+  async findAll() {
+    return await this.purchaseOrderService.findAll();
+  }
 
-    // --- CRUD by poNumber ---
+  // --- CRUD by poNumber ---
 
-    @Get('/:poNumber')
-    async findByPoNumber(@Param('poNumber') poNumber: string) {
-        try {
-            const result = await this.purchaseOrderService.findById(poNumber);
-            return result;
-        } catch (error: unknown) {
-            let errorMessage = 'Unknown error';
-            if (error instanceof Error) {
-                errorMessage = error.message;
-            }
-            return { message: 'Error retrieving purchase order', error: errorMessage };
-        }
-    }
+  @Get('/:poNumber')
+  async findByPoNumber(@Param('poNumber') poNumber: string) {
+    return await this.purchaseOrderService.findByPoNumber(poNumber);
+  }
 
+  @Post()
+  async createInvoice(@Body() data: CreatePurchaseOrderDto) {
+    return await this.purchaseOrderService.createInvoice(data);
+  }
 
+  @Put('/:poNumber')
+  async updateByPoNumber(
+    @Param('poNumber') poNumber: string,
+    @Body() data: CreatePurchaseOrderDto,
+  ) {
+    return await this.purchaseOrderService.updatePurchaseOrder(poNumber, data);
+  }
 
-    @Post()
-    async createInvoice(@Body() data: CreatePurchaseOrderDto) {
-        return await this.purchaseOrderService.createInvoice(data);
-    }
-
-
-
-
-    @Put('/:poNumber')
-    async updateByPoNumber(@Param('poNumber') poNumber: string, @Body() data: CreatePurchaseOrderDto) {
-        return await this.purchaseOrderService.updatePurchaseOrder(poNumber, data);
-    }
-
-    @Delete('/:poNumber')
-    async deleteByPoNumber(@Param('poNumber') poNumber: string) {
-        return await this.purchaseOrderService.deleteInvoice(poNumber);
-    }
-
+  @Delete('/:poNumber')
+  async deleteByPoNumber(@Param('poNumber') poNumber: string) {
+    return await this.purchaseOrderService.deleteInvoice(poNumber);
+  }
 }

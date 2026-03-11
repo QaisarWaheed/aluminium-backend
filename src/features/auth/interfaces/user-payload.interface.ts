@@ -1,7 +1,10 @@
+import { Role } from '../../user/enums/role.enum';
+
 export interface UserPayload {
   _id: string;
   email: string;
   name: string;
+  role: Role;
   createdAt?: Date;
   updatedAt?: Date;
   CreatedAt?: Date;

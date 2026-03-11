@@ -36,7 +36,7 @@ export class Customer {
   creditLimit: number;
 
   @ApiProperty({ enum: PaymentType })
-  @Prop({ enum: PaymentType })
+  @Prop({ type: String, enum: PaymentType })
   paymentType: PaymentType;
 
   declare createdAt: Date;

@@ -48,7 +48,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       message:
         typeof message === 'string'
           ? message
-          : (message as Record<string, any>).message || message,
+          : ((message as { message?: unknown }).message ?? message),
     };
 
     response.status(status).json(responseBody);

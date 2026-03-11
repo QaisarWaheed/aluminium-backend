@@ -1,15 +1,8 @@
-import {
-  IsString,
-  IsNotEmpty,
-  IsOptional,
-  IsNumber,
-  IsDateString,
-  IsEnum,
-} from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsNumber } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import type { paymentMethodType } from 'src/features/sales/salesInvoice/salesinvoice.entity';
 
-export class CreateRecipetVoucherDto {
+export class CreateReceiptVoucherDto {
   @IsNotEmpty()
   @IsString()
   voucherNumber: string;

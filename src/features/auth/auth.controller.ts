@@ -4,6 +4,7 @@ import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { LoginDto } from './dtos/login.dto';
 import { Throttle } from '@nestjs/throttler';
 import { AuthResponseDto } from './dtos/auth-response.dto';
+import { Public } from './jwt-auth.guard';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -11,6 +12,8 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('login')
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+  @Public()
   @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 attempts per minute
   @ApiOperation({ summary: 'User login' })
   @ApiResponse({

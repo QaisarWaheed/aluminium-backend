@@ -1,9 +1,9 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import mongoose from 'mongoose';
-import type { paymentMethodType } from 'src/features/sales/salesInvoice/salesinvoice.entity';
+import type { paymentMethodType } from '../../sales/salesInvoice/salesinvoice.entity';
 
 @Schema({ timestamps: true })
-export class RecieptVoucher {
+export class ReceiptVoucher {
   declare _id: mongoose.Types.ObjectId;
 
   @Prop()
@@ -21,7 +21,7 @@ export class RecieptVoucher {
   @Prop()
   referenceNumber: string;
 
-  @Prop()
+  @Prop({ type: String, enum: ['Cash', 'Card'] })
   paymentMode: paymentMethodType;
 
   @Prop()
@@ -32,5 +32,5 @@ export class RecieptVoucher {
   declare updatedAt: Date;
 }
 
-const recieptVoucherSchema = SchemaFactory.createForClass(RecieptVoucher);
-export default recieptVoucherSchema;
+const receiptVoucherSchema = SchemaFactory.createForClass(ReceiptVoucher);
+export default receiptVoucherSchema;

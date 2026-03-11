@@ -1,9 +1,8 @@
-import { Injectable, BadRequestException, Inject, Scope } from '@nestjs/common';
+import { Injectable, BadRequestException, Scope } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { ClientSession, Model } from 'mongoose';
 import { JournalVoucher } from '../../entities/journal-voucher/journal-voucher';
 import { CreateJournalVoucherDto } from '../../dtos/create-journal-voucher/create-journal-voucher.dto';
-import { REQUEST } from '@nestjs/core';
 
 function parseMMDDYYYY(dateStr?: string): Date | undefined {
   if (!dateStr) return undefined;
@@ -23,12 +22,22 @@ export class JournalvoucherService {
     private model: Model<JournalVoucher>,
   ) {}
 
-  async create(createJournalVoucherDto: CreateJournalVoucherDto) {
-    return await this.model.create(createJournalVoucherDto);
+  async create(
+    createJournalVoucherDto: CreateJournalVoucherDto,
+    session?: ClientSession,
+  ) {
+    const [journalVoucher] = await this.model.create(
+      [createJournalVoucherDto],
+      {
+        session,
+      },
+    );
+
+    return journalVoucher;
   }
 
   async findAll(filters?: { startDate?: string; endDate?: string }) {
-    const query: any = {};
+    const query: { date?: { $gte?: Date; $lte?: Date } } = {};
     let startDate: Date | undefined;
     let endDate: Date | undefined;
 
@@ -59,9 +68,14 @@ export class JournalvoucherService {
   async updateByVoucherNumber(
     voucherNumber: string,
     updateDto: Partial<CreateJournalVoucherDto>,
+    session?: ClientSession,
   ) {
     return await this.model
-      .findOneAndUpdate({ voucherNumber }, updateDto, { new: true })
+      .findOneAndUpdate(
+        { voucherNumber },
+        updateDto,
+        session ? { new: true, session } : { new: true },
+      )
       .exec();
   }
 }

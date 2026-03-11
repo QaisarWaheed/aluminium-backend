@@ -1,55 +1,82 @@
 /* eslint-disable prettier/prettier */
-import { ApiProperty } from "@nestjs/swagger";
-import { Product } from "src/features/products/entities/Product.entity";
-import type { paymentMethodType } from "./salesinvoice.entity";
-import { Customer } from "../customer/entities/customer.entity";
+import { ApiProperty } from '@nestjs/swagger';
+import { Product } from 'src/features/products/entities/Product.entity';
+import type { paymentMethodType } from './salesinvoice.entity';
+import { Customer } from '../customer/entities/customer.entity';
+import {
+  IsArray,
+  IsDateString,
+  IsEnum,
+  IsNumber,
+  IsObject,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class CreateSalesInvoiceDto {
-    @ApiProperty()
-    invoiceNumber: string;
+  @ApiProperty()
+  @IsString()
+  invoiceNumber: string;
 
-    @ApiProperty({ type: String, format: 'date-time' })
-    invoiceDate: Date;
+  @ApiProperty({ type: String, format: 'date-time' })
+  @IsDateString()
+  invoiceDate: Date;
 
-    @ApiProperty({ enum: ['Cash', 'Card'], description: 'Payment method used' })
-    paymentMethod: paymentMethodType;
+  @ApiProperty({ enum: ['Cash', 'Card'], description: 'Payment method used' })
+  @IsOptional()
+  @IsEnum(['Cash', 'Card'])
+  paymentMethod: paymentMethodType;
 
-    @ApiProperty({
-        type: [Object],
-        description: 'Array of product objects sold in this invoice'
-    })
-    items: Product[];
+  @ApiProperty({
+    type: [Object],
+    description: 'Array of product objects sold in this invoice',
+  })
+  @IsArray()
+  items: Product[];
 
-    @ApiProperty({ type: [Object], description: 'Array of customer objects' })
-    customer: Customer;
+  @ApiProperty({ type: Object, description: 'Customer object' })
+  @IsOptional()
+  @IsObject()
+  customer: Customer;
 
-    @ApiProperty()
-    remarks?: string;
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  remarks?: string;
 
-    @ApiProperty()
-    length: number;
+  @ApiProperty()
+  @IsNumber()
+  length: number;
 
-    @ApiProperty()
-    discount: number;
+  @ApiProperty()
+  @IsNumber()
+  discount: number;
 
-    @ApiProperty()
-    subTotal: number;
+  @ApiProperty()
+  @IsNumber()
+  subTotal: number;
 
-    @ApiProperty()
-    amount: number;
+  @ApiProperty()
+  @IsNumber()
+  amount: number;
 
-    @ApiProperty()
-    totalGrossAmount: number;
+  @ApiProperty()
+  @IsNumber()
+  totalGrossAmount: number;
 
-    @ApiProperty()
-    totalDiscountAmount: number;
+  @ApiProperty()
+  @IsNumber()
+  totalDiscountAmount: number;
 
-    @ApiProperty()
-    totalNetAmount: number;
+  @ApiProperty()
+  @IsNumber()
+  totalNetAmount: number;
 
-    @ApiProperty()
-    receivedAmount: number;
+  @ApiProperty()
+  @IsNumber()
+  receivedAmount: number;
 
-    @ApiProperty()
-    pendingAmount: number;
+  @ApiProperty()
+  @IsNumber()
+  pendingAmount: number;
 }

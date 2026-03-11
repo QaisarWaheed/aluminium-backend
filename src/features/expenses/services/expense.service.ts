@@ -1,5 +1,10 @@
 /* eslint-disable prettier/prettier */
-import { BadRequestException, HttpException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Expense } from '../expenses.entity';
 import { Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
@@ -10,14 +15,15 @@ import { PaymentVoucher } from '../../Accounts/paymentVoucher/paymentVoucher.ent
 export class ExpenseService {
   constructor(
     @InjectModel('Expense') private readonly expenseModel: Model<Expense>,
-    @InjectModel('PaymentVoucher') private readonly paymentVoucherModel: Model<PaymentVoucher>,
-  ) { }
+    @InjectModel('PaymentVoucher')
+    private readonly paymentVoucherModel: Model<PaymentVoucher>,
+  ) {}
 
   async findAll(): Promise<Expense[]> {
     try {
       return await this.expenseModel.find().exec();
-    } catch (error) {
-      throw new Error('Error fetching products', { cause: error });
+    } catch {
+      throw new InternalServerErrorException('Failed to fetch expenses');
     }
   }
 
@@ -25,11 +31,15 @@ export class ExpenseService {
     try {
       const expense = await this.expenseModel.findOne({ expenseNumber }).exec();
       if (!expense) {
-        throw new HttpException('No Product Found Against this Id', 404);
+        throw new NotFoundException(`Expense ${expenseNumber} not found`);
       }
       return expense;
     } catch (error) {
-      throw new Error('Error fetching product by ID', { cause: error });
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to fetch expense');
     }
   }
 
@@ -57,7 +67,10 @@ export class ExpenseService {
         }
       } catch (err: unknown) {
         // best-effort: log and continue
-        console.warn('Failed to create payment voucher for expense:', err instanceof Error ? err.message : err);
+        console.warn(
+          'Failed to create payment voucher for expense:',
+          err instanceof Error ? err.message : err,
+        );
       }
 
       return saved;
@@ -65,7 +78,9 @@ export class ExpenseService {
       if (error instanceof Error && error.name === 'ValidationError') {
         throw new BadRequestException(error.message);
       }
-      throw new InternalServerErrorException(error instanceof Error ? error.message : 'Unknown error');
+      throw new InternalServerErrorException(
+        error instanceof Error ? error.message : 'Unknown error',
+      );
     }
   }
 
@@ -74,11 +89,21 @@ export class ExpenseService {
     expense: Partial<CreateExpensesDto>,
   ): Promise<Expense | null> {
     try {
-      return await this.expenseModel
+      const updatedExpense = await this.expenseModel
         .findOneAndUpdate({ expenseNumber }, expense, { new: true })
         .exec();
+
+      if (!updatedExpense) {
+        throw new NotFoundException(`Expense ${expenseNumber} not found`);
+      }
+
+      return updatedExpense;
     } catch (error) {
-      throw new Error('Error updating product', { cause: error });
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to update expense');
     }
   }
 

@@ -3,9 +3,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsNumber,
-  IsDateString,
   IsArray,
-  IsObject,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Product } from 'src/features/products/entities/Product.entity';
