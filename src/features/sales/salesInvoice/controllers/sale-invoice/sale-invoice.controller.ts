@@ -7,14 +7,17 @@ import {
   Param,
   Post,
   Put,
+  Req,
   UseGuards,
   Query,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { SaleInvoiceService } from '../../services/sale-invoice/sale-invoice.service';
 import { CreateSalesInvoiceDto } from '../../salesinvoice.dto';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../../auth/jwt-auth.guard';
 import { PaginationDto } from '../../../../../common/dtos/pagination.dto';
+import type { UserFromJwt } from '../../../../auth/interfaces/jwt-payload.interface';
 
 @ApiTags('Sale-invoice')
 @ApiBearerAuth()
@@ -34,8 +37,14 @@ export class SaleInvoiceController {
   }
 
   @Post()
-  async createInvoice(@Body() data: CreateSalesInvoiceDto) {
-    return await this.saleInvoiceService.createInvoice(data);
+  async createInvoice(
+    @Body() data: CreateSalesInvoiceDto,
+    @Req() request: Request & { user: UserFromJwt },
+  ) {
+    return await this.saleInvoiceService.createInvoice(
+      data,
+      request.user.userId,
+    );
   }
 
   @Put('/:invoiceNumber')

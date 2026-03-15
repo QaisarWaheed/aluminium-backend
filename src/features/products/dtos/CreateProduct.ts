@@ -4,9 +4,48 @@ import {
   IsNumber,
   IsEnum,
   IsOptional,
+  IsArray,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { Unit } from '../entities/Product.entity';
+
+export class CreateProductVariantDto {
+  @ApiProperty()
+  @IsString()
+  @IsOptional()
+  sku?: string; // Auto-generated, but can be provided
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  thickness: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  color: string;
+
+  @ApiProperty()
+  @IsNumber()
+  salesRate: number;
+
+  @ApiProperty()
+  @IsNumber()
+  @IsOptional()
+  openingStock?: number;
+
+  @ApiProperty()
+  @IsNumber()
+  @IsOptional()
+  availableStock?: number; // Current available stock
+
+  @ApiProperty()
+  @IsNumber()
+  @IsOptional()
+  minimumStockLevel?: number;
+}
 
 export class CreateProductDto {
   @ApiProperty()
@@ -19,43 +58,23 @@ export class CreateProductDto {
   @IsNotEmpty()
   category: string;
 
-  @ApiProperty()
-  @IsNumber()
-  @IsOptional()
-  thickness: number;
-
   @ApiProperty({ enum: Unit })
   @IsEnum(Unit)
-  @IsOptional()
   unit: Unit;
 
   @ApiProperty()
-  @IsNumber()
+  @IsString()
   @IsOptional()
-  salesRate: number;
+  description?: string;
 
   @ApiProperty()
   @IsString()
   @IsOptional()
-  color: string;
+  brand?: string;
 
-  @ApiProperty()
-  @IsNumber()
-  @IsOptional()
-  openingStock: number;
-
-  @ApiProperty()
-  @IsNumber()
-  @IsOptional()
-  minimumStockLevel: number;
-
-  @ApiProperty()
-  @IsString()
-  @IsOptional()
-  description: string;
-
-  @ApiProperty()
-  @IsString()
-  @IsOptional()
-  brand: string;
+  @ApiProperty({ type: [CreateProductVariantDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateProductVariantDto)
+  variants: CreateProductVariantDto[];
 }

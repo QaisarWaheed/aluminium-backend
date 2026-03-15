@@ -11,46 +11,54 @@ export enum Unit {
   SQFT = 'sqft',
 }
 
+@Schema()
+export class ProductVariant {
+  @ApiProperty()
+  @Prop({ required: true })
+  sku: string;
+
+  @ApiProperty()
+  @Prop({ required: true })
+  thickness: string;
+
+  @ApiProperty()
+  @Prop({ required: true })
+  color: string;
+
+  @ApiProperty()
+  @Prop({ required: true })
+  salesRate: number;
+
+  @ApiProperty()
+  @Prop({ default: 0 })
+  openingStock: number;
+
+  @ApiProperty()
+  @Prop({ default: 0 })
+  availableStock: number;
+
+  @ApiProperty()
+  @Prop({ default: 0 })
+  minimumStockLevel: number;
+}
+
+const ProductVariantSchema = SchemaFactory.createForClass(ProductVariant);
+
 @Schema({ timestamps: true })
 export class Product {
   declare _id: mongoose.Types.ObjectId;
 
   @ApiProperty()
-  @Prop({ required: true })
+  @Prop({ required: true, unique: true })
   itemName: string;
 
   @ApiProperty({ type: String })
   @Prop({ required: true })
   category: string;
 
-  @ApiProperty()
-  @Prop()
-  thickness: number;
-
-  @ApiProperty()
-  @Prop()
-  length: number;
-
-  @ApiProperty()
-  @Prop({ enum: Unit })
+  @ApiProperty({ enum: Unit })
+  @Prop({ type: String, enum: Unit, required: true })
   unit: Unit;
-
-  @ApiProperty()
-  @Prop()
-  color: string;
-
-  @ApiProperty()
-  @Prop()
-  salesRate: number;
-
-  @Prop()
-  @ApiProperty()
-  @Prop()
-  openingStock: number;
-
-  @ApiProperty()
-  @Prop()
-  minimumStockLevel: number;
 
   @ApiProperty()
   @Prop()
@@ -60,10 +68,16 @@ export class Product {
   @Prop()
   brand: string;
 
+  @ApiProperty({ type: [ProductVariant] })
+  @Prop({ type: [ProductVariantSchema], default: [] })
+  variants: ProductVariant[];
+
   declare createdAt: Date;
 
   declare updatedAt: Date;
 }
 
 const productSchema = SchemaFactory.createForClass(Product);
+productSchema.index({ 'variants.sku': 1 }, { unique: true });
+productSchema.index({ createdAt: -1 });
 export { productSchema };

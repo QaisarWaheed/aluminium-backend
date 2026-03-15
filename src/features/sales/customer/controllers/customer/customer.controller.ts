@@ -1,18 +1,28 @@
 /* eslint-disable prettier/prettier */
-import { Controller, Get, Post, Put, Delete, Param, Body } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Param,
+  Body,
+  Query,
+} from '@nestjs/common';
 
 import { ApiTags } from '@nestjs/swagger';
 import CreateCustomerDto from '../../dtos/createCustomer.dto';
 import { CustomerService } from '../../services/customer/customer.service';
+import { PaginationDto } from '../../../../../common/dtos/pagination.dto';
 
 @ApiTags('Customers')
 @Controller('customers')
 export class CustomerController {
-  constructor(private readonly customerService: CustomerService) { }
+  constructor(private readonly customerService: CustomerService) {}
 
   @Get()
-  getAll() {
-    return this.customerService.findAll();
+  getAll(@Query() paginationDto: PaginationDto) {
+    return this.customerService.findAll(paginationDto);
   }
 
   @Get('/:id')

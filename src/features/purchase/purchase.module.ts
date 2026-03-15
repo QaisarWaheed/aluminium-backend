@@ -12,9 +12,11 @@ import { PurchaseInvoiceService } from './PurchaseInvoice/services/purchase-invo
 import { PurchaseReturnService } from './PurchaseReturn/services/purchase-return.service';
 import { PurchaseorderController } from './purchaseOrder/controllers/purchaseorder.controller';
 import { PurchaseorderService } from './purchaseOrder/services/purchaseorder.service';
+import { ProductsModule } from '../products/products.module';
 
 @Module({
   imports: [
+    ProductsModule,
     MongooseModule.forFeature([
       { name: 'Supplier', schema: SupplierSchema },
       { name: 'PurchaseInvoice', schema: purchaseInvoiceSchema },

@@ -21,7 +21,9 @@ async function seed() {
     for (const c of defaults) {
       const existing = await Category.findOne({ name: c.name }).exec();
       if (existing) {
-        console.log(`Category ${c.name} already exists (id=${existing._id})`);
+        console.log(
+          `Category ${c.name} already exists (id=${String(existing._id)})`,
+        );
         continue;
       }
 
@@ -30,7 +32,7 @@ async function seed() {
         prefix: c.prefix,
         seq: 0,
       });
-      console.log(`Created category ${c.name} id=${doc._id}`);
+      console.log(`Created category ${c.name} id=${String(doc._id)}`);
     }
 
     console.log('Seeding complete');
@@ -41,4 +43,4 @@ async function seed() {
   }
 }
 
-seed();
+void seed();

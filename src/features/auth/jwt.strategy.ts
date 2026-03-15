@@ -7,21 +7,22 @@ import { JwtPayload } from './interfaces/jwt-payload.interface';
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(private configService: ConfigService) {
+    const jwtSecret = configService.getOrThrow<string>('JWT_SECRET');
+
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET') ?? '',
+      secretOrKey: jwtSecret,
     });
-
-    if (!configService.get<string>('JWT_SECRET')) {
-      throw new Error(
-        'CRITICAL: JWT_SECRET environment variable is required for security',
-      );
-    }
   }
 
-  async validate(payload: JwtPayload) {
+  validate(payload: JwtPayload) {
     // Return user object which will be injected into request object
-    return { userId: payload.sub, email: payload.email, name: payload.name };
+    return {
+      userId: payload.sub,
+      email: payload.email,
+      name: payload.name,
+      role: payload.role,
+    };
   }
 }

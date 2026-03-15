@@ -1,41 +1,140 @@
 /* eslint-disable prettier/prettier */
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+  InternalServerErrorException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { SalesInvoice } from '../../salesinvoice.entity';
-import { Model } from 'mongoose';
+import { ClientSession, Connection, Model, Types } from 'mongoose';
 import { CreateSalesInvoiceDto } from '../../salesinvoice.dto';
-import { InjectModel } from '@nestjs/mongoose';
+import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { PaginationDto } from '../../../../../common/dtos/pagination.dto';
 import { PaginatedResult } from '../../../../../common/interfaces/paginated-result.interface';
 import { JournalvoucherService } from '../../../../Accounts/journalVoucher/services/journalvoucher/journalvoucher.service';
 import { CreateJournalVoucherDto } from '../../../../Accounts/journalVoucher/dtos/create-journal-voucher/create-journal-voucher.dto';
+import { ProductService } from '../../../../products/services/product.service';
+import { StockTransactionType } from '../../../../products/entities/StockLedger.entity';
+import { StockMovementService } from '../../../../products/services/stock-movement.service';
+import { SessionService } from 'src/features/session/session.service';
+
+type SalesInvoiceCustomer = { name?: string } | Array<{ name?: string }> | null;
+
+type SalesInvoiceLineItem = {
+  sku?: string;
+  quantity?: number;
+  itemName?: string;
+  thickness?: string;
+  color?: string;
+  productId?: string | Types.ObjectId;
+  _id?: string | Types.ObjectId;
+};
+
+type AggregatedInvoiceLineItem = {
+  variantId: string;
+  quantity: number;
+  itemName?: string;
+  thickness?: string;
+  color?: string;
+};
+
+type StockAdjustment = AggregatedInvoiceLineItem & {
+  direction: 'IN' | 'OUT';
+};
+
+function getCustomerName(customer: SalesInvoiceCustomer): string {
+  if (Array.isArray(customer)) {
+    return customer[0]?.name ?? 'Unknown';
+  }
+  return customer?.name ?? 'Unknown';
+}
+
+function normalizeId(value?: string | Types.ObjectId): string | null {
+  if (!value) {
+    return null;
+  }
+
+  return typeof value === 'string' ? value : value.toString();
+}
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 @Injectable()
 export class SaleInvoiceService {
   constructor(
+    @InjectConnection()
+    private readonly connection: Connection,
     @InjectModel('SalesInvoice')
     private readonly saleInvoiceModel: Model<SalesInvoice>,
     private readonly journalVoucherService: JournalvoucherService,
+    private readonly productService: ProductService,
+    private readonly stockMovementService: StockMovementService,
+    private readonly sessionService: SessionService,
   ) {}
 
   async findAll(
     paginationDto: PaginationDto = { page: 1, limit: 10 },
   ): Promise<PaginatedResult<SalesInvoice>> {
-    const { page = 1, limit = 10 } = paginationDto;
+    const { page = 1, limit = 10, search } = paginationDto;
     const skip = (page - 1) * limit;
+    const trimmedSearch = search?.trim();
+    const query = trimmedSearch
+      ? {
+          $or: [
+            {
+              invoiceNumber: {
+                $regex: escapeRegex(trimmedSearch),
+                $options: 'i',
+              },
+            },
+            { remarks: { $regex: escapeRegex(trimmedSearch), $options: 'i' } },
+            {
+              'customer.name': {
+                $regex: escapeRegex(trimmedSearch),
+                $options: 'i',
+              },
+            },
+            {
+              'items.itemName': {
+                $regex: escapeRegex(trimmedSearch),
+                $options: 'i',
+              },
+            },
+            {
+              'items.productName': {
+                $regex: escapeRegex(trimmedSearch),
+                $options: 'i',
+              },
+            },
+            {
+              'items.sku': {
+                $regex: escapeRegex(trimmedSearch),
+                $options: 'i',
+              },
+            },
+          ],
+        }
+      : {};
 
     const [data, total] = await Promise.all([
-      this.saleInvoiceModel.find().skip(skip).limit(limit).exec(),
-      this.saleInvoiceModel.countDocuments().exec(),
+      this.saleInvoiceModel
+        .find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.saleInvoiceModel.countDocuments(query).exec(),
     ]);
 
     return {
       data,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      total,
+      page,
+      lastPage: Math.max(1, Math.ceil(total / limit)),
     };
   }
 
@@ -45,39 +144,109 @@ export class SaleInvoiceService {
     return await this.saleInvoiceModel.findOne({ invoiceNumber }).exec();
   }
 
-  async createInvoice(data: CreateSalesInvoiceDto): Promise<SalesInvoice> {
-    const session = await this.saleInvoiceModel.db.startSession();
-    session.startTransaction();
+  async createInvoice(
+    data: CreateSalesInvoiceDto,
+    userId: string,
+    allowNegativeStock = false,
+  ): Promise<SalesInvoice> {
+    const openSession =
+      await this.sessionService.findOpenSessionForUser(userId);
+
+    if (!openSession) {
+      throw new ForbiddenException('Please open a shift first');
+    }
+
+    const session = await this.connection.startSession();
+
     try {
-      // 1. Create Invoice
-      const createdInvoice = await this.saleInvoiceModel.create([data], {
-        session,
+      let invoice: SalesInvoice | null = null;
+
+      await session.withTransaction(async () => {
+        // Abort before invoice creation if stock is not available.
+        if (data.items && data.items.length > 0) {
+          const stockValidation = await this.validateStockAvailability(
+            data.items,
+            allowNegativeStock,
+            session,
+          );
+
+          if (!stockValidation.isValid) {
+            throw new BadRequestException(
+              `Stock validation failed: ${stockValidation.errors.join('; ')}`,
+            );
+          }
+        }
+
+        const invoicePayload = {
+          ...data,
+          totalDiscount: data.totalDiscountAmount || 0,
+          sessionId: openSession._id.toString(),
+        };
+
+        const createdInvoice = await this.saleInvoiceModel.create(
+          [invoicePayload],
+          {
+            session,
+          },
+        );
+        invoice = createdInvoice[0];
+
+        if (data.items && data.items.length > 0) {
+          await this.processStockDeduction(
+            data.invoiceNumber,
+            data.items,
+            session,
+          );
+        }
+
+        const customerName = getCustomerName(
+          data.customer as SalesInvoiceCustomer,
+        );
+
+        const journalDto: CreateJournalVoucherDto = {
+          date: data.invoiceDate || new Date(),
+          voucherNumber: data.invoiceNumber,
+          accountNumber: customerName,
+          description: `Bill Created - ${data.invoiceNumber}`,
+          debit: data.totalNetAmount || 0,
+          credit: data.receivedAmount || 0,
+        };
+
+        await this.journalVoucherService.create(journalDto, session);
       });
-      const invoice = createdInvoice[0];
 
-      // 2. Prepare Ledger Entry Data
-      const customerName = Array.isArray(data.customer)
-        ? data.customer[0]?.name || 'Unknown'
-        : (data.customer as any)?.name || 'Unknown';
+      if (!invoice) {
+        throw new InternalServerErrorException(
+          'Invoice transaction completed without returning an invoice',
+        );
+      }
 
-      const journalDto: CreateJournalVoucherDto = {
-        date: data.invoiceDate || new Date(),
-        voucherNumber: data.invoiceNumber,
-        accountNumber: customerName,
-        description: `Bill Created - ${data.invoiceNumber}`,
-        debit: data.totalNetAmount || 0,
-        credit: data.receivedAmount || 0,
-      };
-
-      // 3. Create Ledger Entry
-      await this.journalVoucherService.create(journalDto);
-
-      await session.commitTransaction();
       return invoice;
     } catch (error) {
-      await session.abortTransaction();
-      console.error('Error creating invoice with ledger:', error);
-      throw error;
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException
+      ) {
+        throw error;
+      }
+
+      const errorLabels =
+        typeof error === 'object' && error !== null && 'errorLabels' in error
+          ? (error as { errorLabels?: string[] }).errorLabels
+          : undefined;
+
+      console.error('Error creating invoice within transaction:', error);
+
+      if (errorLabels?.includes('TransientTransactionError')) {
+        throw new ServiceUnavailableException(
+          'Invoice transaction failed and was rolled back. Please retry.',
+        );
+      }
+
+      throw new InternalServerErrorException(
+        'Invoice transaction failed and all changes were rolled back.',
+      );
     } finally {
       await session.endSession();
     }
@@ -87,44 +256,313 @@ export class SaleInvoiceService {
     invoiceNumber: string,
     data: CreateSalesInvoiceDto,
   ): Promise<SalesInvoice | null> {
+    const session = await this.connection.startSession();
+
     try {
-      const updatedInvoice = await this.saleInvoiceModel.findOneAndUpdate(
-        { invoiceNumber },
-        data,
-        { new: true },
-      );
-      if (!updatedInvoice) {
-        throw new NotFoundException('Invoice not found');
-      }
+      let updatedInvoice: SalesInvoice | null = null;
 
-      // 4. Update Ledger Entry
-      // Prepare update data similar to create
-      const customerName = Array.isArray(data.customer)
-        ? data.customer[0]?.name || 'Unknown'
-        : (data.customer as any)?.name || 'Unknown';
+      await session.withTransaction(async () => {
+        const existingInvoice = await this.saleInvoiceModel
+          .findOne({ invoiceNumber })
+          .session(session)
+          .exec();
 
-      const journalUpdate: Partial<CreateJournalVoucherDto> = {
-        date: data.invoiceDate,
-        accountNumber: customerName, // Update customer caption if changed
-        debit: data.totalNetAmount || 0,
-        credit: data.receivedAmount || 0,
-        description: `Bill Updated - ${invoiceNumber}`,
-      };
+        if (!existingInvoice) {
+          throw new NotFoundException('Invoice not found');
+        }
 
-      await this.journalVoucherService.updateByVoucherNumber(
-        invoiceNumber,
-        journalUpdate,
-      );
+        const adjustments = this.calculateStockAdjustments(
+          (existingInvoice.items || []) as SalesInvoiceLineItem[],
+          data.items || [],
+        );
+
+        await this.applyStockAdjustments(
+          invoiceNumber,
+          adjustments,
+          StockTransactionType.MANUAL_ADJUSTMENT,
+          session,
+          'Invoice updated',
+        );
+
+        const invoicePayload = {
+          ...data,
+          totalDiscount: data.totalDiscountAmount || 0,
+        };
+
+        updatedInvoice = await this.saleInvoiceModel
+          .findOneAndUpdate({ invoiceNumber }, invoicePayload, {
+            new: true,
+            session,
+          })
+          .exec();
+
+        const customerName = getCustomerName(
+          data.customer as SalesInvoiceCustomer,
+        );
+
+        const journalUpdate: Partial<CreateJournalVoucherDto> = {
+          date: data.invoiceDate,
+          accountNumber: customerName,
+          debit: data.totalNetAmount || 0,
+          credit: data.receivedAmount || 0,
+          description: `Bill Updated - ${invoiceNumber}`,
+        };
+
+        await this.journalVoucherService.updateByVoucherNumber(
+          invoiceNumber,
+          journalUpdate,
+          session,
+        );
+      });
 
       return updatedInvoice;
     } catch (error) {
-      console.error('Error updating invoice:', error);
-      throw new Error('Could not update invoice');
+      this.rethrowTransactionError(error, 'Could not update invoice');
+    } finally {
+      await session.endSession();
     }
   }
   async deleteInvoice(invoiceNumber: string) {
-    return await this.saleInvoiceModel
-      .findOneAndDelete({ invoiceNumber })
-      .exec();
+    const session = await this.connection.startSession();
+
+    try {
+      let deletedInvoice: SalesInvoice | null = null;
+
+      await session.withTransaction(async () => {
+        const existingInvoice = await this.saleInvoiceModel
+          .findOne({ invoiceNumber })
+          .session(session)
+          .exec();
+
+        if (!existingInvoice) {
+          throw new NotFoundException('Invoice not found');
+        }
+
+        await this.reverseStockDeduction(
+          invoiceNumber,
+          (existingInvoice.items || []) as SalesInvoiceLineItem[],
+          session,
+        );
+
+        await this.journalVoucherService.updateByVoucherNumber(
+          invoiceNumber,
+          {
+            debit: 0,
+            credit: 0,
+            description: `Bill Cancelled - ${invoiceNumber}`,
+          },
+          session,
+        );
+
+        deletedInvoice = await this.saleInvoiceModel
+          .findOneAndDelete({ invoiceNumber }, { session })
+          .exec();
+      });
+
+      return deletedInvoice;
+    } catch (error) {
+      this.rethrowTransactionError(error, 'Could not delete invoice');
+    } finally {
+      await session.endSession();
+    }
+  }
+
+  /**
+   * Validate stock availability for all line items
+   */
+  private async validateStockAvailability(
+    items: SalesInvoiceLineItem[],
+    allowNegativeStock = false,
+    session?: ClientSession,
+  ): Promise<{ isValid: boolean; errors: string[] }> {
+    const errors: string[] = [];
+
+    for (const item of items) {
+      // Skip validation if no SKU (legacy products)
+      if (!item.sku) continue;
+
+      const currentStock = await this.productService.getVariantStock(
+        item.sku,
+        session,
+      );
+      const requiredQuantity = item.quantity || 0;
+
+      if (!allowNegativeStock && currentStock < requiredQuantity) {
+        const productInfo = `${item.itemName} (${item.thickness} - ${item.color})`;
+        errors.push(
+          `Insufficient stock for ${productInfo}. Available: ${currentStock}, Required: ${requiredQuantity}`,
+        );
+      }
+    }
+
+    return { isValid: errors.length === 0, errors };
+  }
+
+  /**
+   * Process stock deduction for sale items
+   */
+  private async processStockDeduction(
+    invoiceNumber: string,
+    items: SalesInvoiceLineItem[],
+    session?: ClientSession,
+  ): Promise<void> {
+    const movements = Array.from(
+      this.aggregateInvoiceItems(items).values(),
+    ).map((item) => ({ ...item, direction: 'OUT' as const }));
+
+    await this.applyStockAdjustments(
+      invoiceNumber,
+      movements,
+      StockTransactionType.SALE,
+      session,
+      'Sale posted',
+    );
+  }
+
+  private async reverseStockDeduction(
+    invoiceNumber: string,
+    items: SalesInvoiceLineItem[],
+    session?: ClientSession,
+  ): Promise<void> {
+    const movements = Array.from(
+      this.aggregateInvoiceItems(items).values(),
+    ).map((item) => ({ ...item, direction: 'IN' as const }));
+
+    await this.applyStockAdjustments(
+      invoiceNumber,
+      movements,
+      StockTransactionType.CANCELLED,
+      session,
+      'Invoice cancelled',
+    );
+  }
+
+  private aggregateInvoiceItems(
+    items: SalesInvoiceLineItem[],
+  ): Map<string, AggregatedInvoiceLineItem> {
+    const aggregated = new Map<string, AggregatedInvoiceLineItem>();
+
+    for (const item of items) {
+      const variantId = this.resolveVariantIdentifier(item);
+      const quantity = Number(item.quantity || 0);
+
+      if (!variantId || quantity <= 0) {
+        continue;
+      }
+
+      const current = aggregated.get(variantId);
+      aggregated.set(variantId, {
+        variantId,
+        quantity: (current?.quantity || 0) + quantity,
+        itemName: item.itemName || current?.itemName,
+        thickness: item.thickness || current?.thickness,
+        color: item.color || current?.color,
+      });
+    }
+
+    return aggregated;
+  }
+
+  private calculateStockAdjustments(
+    previousItems: SalesInvoiceLineItem[],
+    nextItems: SalesInvoiceLineItem[],
+  ): StockAdjustment[] {
+    const previousMap = this.aggregateInvoiceItems(previousItems);
+    const nextMap = this.aggregateInvoiceItems(nextItems);
+    const identifiers = new Set([...previousMap.keys(), ...nextMap.keys()]);
+    const adjustments: StockAdjustment[] = [];
+
+    for (const variantId of identifiers) {
+      const previous = previousMap.get(variantId);
+      const next = nextMap.get(variantId);
+      const quantityDelta = (next?.quantity || 0) - (previous?.quantity || 0);
+
+      if (quantityDelta === 0) {
+        continue;
+      }
+
+      adjustments.push({
+        variantId,
+        quantity: Math.abs(quantityDelta),
+        direction: quantityDelta > 0 ? 'OUT' : 'IN',
+        itemName: next?.itemName || previous?.itemName,
+        thickness: next?.thickness || previous?.thickness,
+        color: next?.color || previous?.color,
+      });
+    }
+
+    return adjustments;
+  }
+
+  private async applyStockAdjustments(
+    invoiceNumber: string,
+    adjustments: StockAdjustment[],
+    transactionType: StockTransactionType,
+    session: ClientSession | undefined,
+    actionLabel: string,
+  ): Promise<void> {
+    for (const adjustment of adjustments) {
+      await this.stockMovementService.adjustStock(
+        adjustment.variantId,
+        adjustment.quantity,
+        adjustment.direction,
+        {
+          session,
+          referenceId: invoiceNumber,
+          transactionType,
+          notes: this.buildStockMovementNote(
+            actionLabel,
+            invoiceNumber,
+            adjustment,
+          ),
+        },
+      );
+    }
+  }
+
+  private resolveVariantIdentifier(item: SalesInvoiceLineItem): string | null {
+    return item.sku ?? normalizeId(item._id);
+  }
+
+  private buildStockMovementNote(
+    actionLabel: string,
+    invoiceNumber: string,
+    item: Pick<AggregatedInvoiceLineItem, 'itemName' | 'thickness' | 'color'>,
+  ): string {
+    const productLabel = item.itemName || 'Variant';
+    const attributes = [item.thickness, item.color].filter(Boolean).join(' / ');
+
+    return attributes
+      ? `${actionLabel} - ${invoiceNumber} - ${productLabel} (${attributes})`
+      : `${actionLabel} - ${invoiceNumber} - ${productLabel}`;
+  }
+
+  private rethrowTransactionError(
+    error: unknown,
+    fallbackMessage: string,
+  ): never {
+    if (
+      error instanceof BadRequestException ||
+      error instanceof NotFoundException
+    ) {
+      throw error;
+    }
+
+    const errorLabels =
+      typeof error === 'object' && error !== null && 'errorLabels' in error
+        ? (error as { errorLabels?: string[] }).errorLabels
+        : undefined;
+
+    console.error(fallbackMessage, error);
+
+    if (errorLabels?.includes('TransientTransactionError')) {
+      throw new ServiceUnavailableException(
+        'Invoice transaction failed and was rolled back. Please retry.',
+      );
+    }
+
+    throw new InternalServerErrorException(
+      `${fallbackMessage}. All changes were rolled back.`,
+    );
   }
 }

@@ -1,6 +1,8 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { ApiProperty } from '@nestjs/swagger';
-import mongoose, { mongo } from 'mongoose';
+import mongoose from 'mongoose';
+
+import { Role } from '../enums/role.enum';
 
 @Schema()
 export class User {
@@ -17,6 +19,10 @@ export class User {
   @ApiProperty({ required: true })
   @Prop({ required: true })
   password: string;
+
+  @ApiProperty({ enum: Role, default: Role.CASHIER })
+  @Prop({ type: String, enum: Role, default: Role.CASHIER, required: true })
+  role: Role;
 
   declare CreatedAt: Date;
   declare UpdatedAt: Date;

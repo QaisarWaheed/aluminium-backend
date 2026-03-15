@@ -3,15 +3,12 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import mongoose from 'mongoose';
 import { Product } from 'src/features/products/entities/Product.entity';
 
-import { Supplier } from 'src/features/purchase/supplier/supplier.entity';
 import { Customer } from '../customer/entities/customer.entity';
 
 export type paymentMethodType = 'Cash' | 'Card';
 
 @Schema({ timestamps: true })
-
 export class SalesReturn {
-
   declare _id: mongoose.Types.ObjectId;
 
   @Prop()
@@ -20,10 +17,8 @@ export class SalesReturn {
   @Prop()
   invoiceDate: Date;
 
-
   @Prop()
-  paymentMethod: paymentMethodType
-
+  paymentMethod: paymentMethodType;
 
   @Prop({ type: [mongoose.Schema.Types.Mixed], required: false })
   products: Product[];
@@ -31,30 +26,26 @@ export class SalesReturn {
   @Prop({ type: [mongoose.Schema.Types.Mixed], required: false })
   customer: Customer[];
 
-
   @Prop()
   remarks: string;
 
+  @Prop()
+  subTotal: number;
 
   @Prop()
-  subTotal: number
+  totalGrossAmount: number;
 
   @Prop()
-  totalGrossAmount: number
+  totalDiscount: number;
 
   @Prop()
-  totalDiscount: number
-
-  @Prop()
-  discount: number
+  discount: number;
 
   @Prop()
   length: number;
 
-
-
   @Prop()
-  totalNetAmount: number
+  totalNetAmount: number;
 
   declare createdAt: Date;
 

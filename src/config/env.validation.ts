@@ -3,15 +3,20 @@ import {
   IsString,
   IsNotEmpty,
   IsNumber,
+  IsOptional,
   Min,
   Max,
   validateSync,
 } from 'class-validator';
 
 export class EnvironmentVariables {
+  @IsOptional()
+  @IsString()
+  NODE_ENV: string = 'development';
+
   @IsString()
   @IsNotEmpty()
-  MONGODB_URI: string;
+  MONGO_URI: string;
 
   @IsString()
   @IsNotEmpty()
@@ -24,10 +29,27 @@ export class EnvironmentVariables {
 
   @IsString()
   ALLOWED_ORIGINS: string = 'http://localhost:5173';
+
+  @IsOptional()
+  @IsString()
+  BOOTSTRAP_ADMIN_NAME: string = 'admin';
+
+  @IsOptional()
+  @IsString()
+  BOOTSTRAP_ADMIN_EMAIL: string = 'admin@example.com';
+
+  @IsOptional()
+  @IsString()
+  BOOTSTRAP_ADMIN_PASSWORD: string = '';
 }
 
 export function validateEnvironment(config: Record<string, unknown>) {
-  const validatedConfig = plainToClass(EnvironmentVariables, config, {
+  const normalizedConfig = {
+    ...config,
+    MONGO_URI: config.MONGO_URI ?? config.MONGODB_URI,
+  };
+
+  const validatedConfig = plainToClass(EnvironmentVariables, normalizedConfig, {
     enableImplicitConversion: true,
   });
 

@@ -2,7 +2,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { ApiProperty } from '@nestjs/swagger';
 import mongoose from 'mongoose';
-import { PaymentType } from 'src/features/sales/customer/entities/customer.entity';
+import { PaymentType } from '../../sales/customer/entities/customer.entity';
 
 @Schema({ timestamps: true })
 export class Supplier {
@@ -33,7 +33,7 @@ export class Supplier {
   openingBalance: number;
 
   @ApiProperty({ enum: PaymentType })
-  @Prop({ enum: PaymentType })
+  @Prop({ type: String, enum: PaymentType })
   paymentType: PaymentType;
 
   declare createdAt: Date;

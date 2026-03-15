@@ -15,11 +15,12 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async login(user: UserPayload): Promise<AuthResponseDto> {
+  login(user: UserPayload): AuthResponseDto {
     const payload: JwtPayload = {
       email: user.email,
       sub: user._id,
       name: user.name,
+      role: user.role,
     };
     return {
       success: true,
@@ -28,6 +29,7 @@ export class AuthService {
         _id: user._id,
         email: user.email,
         name: user.name,
+        role: user.role,
       },
     };
   }
