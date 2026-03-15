@@ -35,6 +35,7 @@ async function bootstrap() {
     origin: [
       'https://pos-and-inventory-git-main-azibaliansari311-6622s-projects.vercel.app',
       'https://pos-and-inventory-git-main-azibaliansari311-6622s-projects.vercel.app/auth',
+      'https://fastidious-frangollo-6e9e30.netlify.app/auth',
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
