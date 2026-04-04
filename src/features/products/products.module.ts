@@ -39,6 +39,7 @@ import { StockMovementService } from './services/stock-movement.service';
     StockLedgerController,
   ],
   exports: [
+    MongooseModule,
     ProductService,
     SkuService,
     StockLedgerService,

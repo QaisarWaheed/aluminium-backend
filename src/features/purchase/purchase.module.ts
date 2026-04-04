@@ -13,9 +13,11 @@ import { PurchaseReturnService } from './PurchaseReturn/services/purchase-return
 import { PurchaseorderController } from './purchaseOrder/controllers/purchaseorder.controller';
 import { PurchaseorderService } from './purchaseOrder/services/purchaseorder.service';
 import { ProductsModule } from '../products/products.module';
+import { JournalVoucher } from '../Accounts/journalVoucher/journalVoucher';
 
 @Module({
   imports: [
+    JournalVoucher,
     ProductsModule,
     MongooseModule.forFeature([
       { name: 'Supplier', schema: SupplierSchema },

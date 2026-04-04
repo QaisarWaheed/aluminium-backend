@@ -8,8 +8,13 @@ import { Connection, Model } from 'mongoose';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { SalesReturn } from '../../salesReturn.entity';
 import { CreateSalesReturnDto } from '../../salesReturn.dto';
-import { StockMovementService } from 'src/features/products/services/stock-movement.service';
-import { StockTransactionType } from 'src/features/products/entities/StockLedger.entity';
+import {
+  StockLedger,
+  StockTransactionType,
+} from 'src/features/products/entities/StockLedger.entity';
+import { JournalvoucherService } from 'src/features/Accounts/journalVoucher/services/journalvoucher/journalvoucher.service';
+import { Product } from 'src/features/products/entities/Product.entity';
+import { SalesInvoice } from 'src/features/sales/salesInvoice/salesinvoice.entity';
 
 type SalesReturnLineItem = {
   sku?: string;
@@ -22,6 +27,13 @@ type SalesReturnLineItem = {
   color?: string;
 };
 
+type SalesReturnPayload = CreateSalesReturnDto & {
+  metadata?: {
+    sourceInvoiceNumber?: string;
+    originalInvoiceNumber?: string;
+  };
+};
+
 @Injectable()
 export class SalesReturnService {
   constructor(
@@ -29,7 +41,13 @@ export class SalesReturnService {
     private readonly connection: Connection,
     @InjectModel('SalesReturn')
     private readonly salesReturnModel: Model<SalesReturn>,
-    private readonly stockMovementService: StockMovementService,
+    @InjectModel(Product.name)
+    private readonly productModel: Model<Product>,
+    @InjectModel(StockLedger.name)
+    private readonly stockLedgerModel: Model<StockLedger>,
+    @InjectModel('SalesInvoice')
+    private readonly salesInvoiceModel: Model<SalesInvoice>,
+    private readonly journalVoucherService: JournalvoucherService,
   ) {}
 
   async findAll(): Promise<SalesReturn[]> {
@@ -51,9 +69,27 @@ export class SalesReturnService {
       let createdReturn: SalesReturn | null = null;
 
       await session.withTransaction(async () => {
+        const payload = data as SalesReturnPayload;
         const items: SalesReturnLineItem[] = Array.isArray(data.products)
           ? data.products.map((item) => item as unknown as SalesReturnLineItem)
           : [];
+
+        const sourceInvoiceNumber =
+          payload.metadata?.sourceInvoiceNumber ||
+          payload.metadata?.originalInvoiceNumber;
+
+        if (sourceInvoiceNumber) {
+          const sourceSale = await this.salesInvoiceModel
+            .findOne({ invoiceNumber: sourceInvoiceNumber })
+            .session(session)
+            .exec();
+
+          if (!sourceSale) {
+            throw new BadRequestException(
+              `Original sale not found: ${sourceInvoiceNumber}`,
+            );
+          }
+        }
 
         const [salesReturn] = await this.salesReturnModel.create([data], {
           session,
@@ -70,16 +106,101 @@ export class SalesReturnService {
             );
           }
 
-          await this.stockMovementService.adjustStock(
-            variantId,
-            quantity,
-            'IN',
+          const currentProduct = await this.productModel
+            .findOne({
+              $or: [
+                { 'variants.sku': variantId },
+                { 'variants._id': variantId },
+              ],
+            })
+            .session(session)
+            .exec();
+
+          if (!currentProduct) {
+            throw new BadRequestException(
+              `Product variant not found for ${item.productName || item.itemName || variantId}`,
+            );
+          }
+
+          const previousVariant = currentProduct.variants.find(
+            (variant) =>
+              variant.sku === variantId ||
+              String((variant as { _id?: unknown })._id) === variantId,
+          );
+
+          if (!previousVariant) {
+            throw new BadRequestException(
+              `Variant not found for ${item.productName || item.itemName || variantId}`,
+            );
+          }
+
+          const updatedProduct = await this.productModel
+            .findOneAndUpdate(
+              {
+                $or: [
+                  { 'variants.sku': variantId },
+                  { 'variants._id': variantId },
+                ],
+              },
+              { $inc: { 'variants.$.availableStock': quantity } },
+              { new: true, session },
+            )
+            .exec();
+
+          if (!updatedProduct) {
+            throw new InternalServerErrorException(
+              `Failed to update stock for ${item.productName || item.itemName || variantId}`,
+            );
+          }
+
+          const updatedVariant = updatedProduct.variants.find(
+            (variant) =>
+              variant.sku === variantId ||
+              String((variant as { _id?: unknown })._id) === variantId,
+          );
+
+          if (!updatedVariant) {
+            throw new InternalServerErrorException(
+              `Failed to resolve updated stock for ${item.productName || item.itemName || variantId}`,
+            );
+          }
+
+          await this.stockLedgerModel.create(
+            [
+              {
+                productId: currentProduct._id,
+                sku: previousVariant.sku,
+                quantityChange: quantity,
+                transactionType: StockTransactionType.RETURN,
+                referenceId: data.invoiceNumber,
+                previousStock: Number(previousVariant.availableStock || 0),
+                newStock: Number(updatedVariant.availableStock || 0),
+                notes: this.buildReturnNote(data.invoiceNumber, item),
+              },
+            ],
+            { session },
+          );
+        }
+
+        const returnAmount = Number(data.totalNetAmount || data.subTotal || 0);
+
+        if (returnAmount > 0) {
+          await this.journalVoucherService.createDoubleEntry(
             {
-              session,
+              voucherNumber: data.invoiceNumber,
               referenceId: data.invoiceNumber,
-              transactionType: StockTransactionType.RETURN,
-              notes: this.buildReturnNote(data.invoiceNumber, item),
+              transactionDate: data.invoiceDate || new Date(),
+              description: `Sales Return Posted - ${data.invoiceNumber}`,
+              debitEntry: {
+                accountNumber: 'Sales Returns and Allowances',
+                amount: returnAmount,
+              },
+              creditEntry: {
+                accountNumber: 'Accounts Receivable',
+                amount: returnAmount,
+              },
             },
+            session,
           );
         }
       });

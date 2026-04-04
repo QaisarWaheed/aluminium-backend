@@ -10,8 +10,12 @@ import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { CreatePurchaseInvoiceDto } from '../dtos/CreatePurchaseInvoiceDto.dto';
 import { PaginationDto } from '../../../../common/dtos/pagination.dto';
 import { PaginatedResult } from '../../../../common/interfaces/paginated-result.interface';
-import { StockMovementService } from 'src/features/products/services/stock-movement.service';
-import { StockTransactionType } from 'src/features/products/entities/StockLedger.entity';
+import { JournalvoucherService } from 'src/features/Accounts/journalVoucher/services/journalvoucher/journalvoucher.service';
+import {
+  StockLedger,
+  StockTransactionType,
+} from 'src/features/products/entities/StockLedger.entity';
+import { Product } from 'src/features/products/entities/Product.entity';
 
 type PurchaseInvoiceLineItem = {
   sku?: string;
@@ -37,7 +41,11 @@ export class PurchaseInvoiceService {
     private readonly connection: Connection,
     @InjectModel('PurchaseInvoice')
     private readonly purchaseInvoiceModel: Model<PurchaseInvoice>,
-    private readonly stockMovementService: StockMovementService,
+    @InjectModel(Product.name)
+    private readonly productModel: Model<Product>,
+    @InjectModel(StockLedger.name)
+    private readonly stockLedgerModel: Model<StockLedger>,
+    private readonly journalVoucherService: JournalvoucherService,
   ) {}
 
   async findAll(
@@ -133,19 +141,108 @@ export class PurchaseInvoiceService {
           const variantId = this.getVariantIdentifier(item);
           const quantity = Number(item.quantity || 0);
 
-          await this.stockMovementService.adjustStock(
-            variantId,
-            quantity,
-            'IN',
+          // Read current stock snapshot before atomic increment.
+          const currentProduct = await this.productModel
+            .findOne({
+              $or: [
+                { 'variants.sku': variantId },
+                { 'variants._id': variantId },
+              ],
+            })
+            .session(session)
+            .exec();
+
+          if (!currentProduct) {
+            throw new BadRequestException(
+              `Product variant not found for ${item.productName || item.itemName || variantId}`,
+            );
+          }
+
+          const previousVariant = currentProduct.variants.find(
+            (variant) =>
+              variant.sku === variantId ||
+              String((variant as { _id?: unknown })._id) === variantId,
+          );
+
+          if (!previousVariant) {
+            throw new BadRequestException(
+              `Variant not found for ${item.productName || item.itemName || variantId}`,
+            );
+          }
+
+          // Atomic stock increment to prevent race conditions under high throughput.
+          const updatedProduct = await this.productModel
+            .findOneAndUpdate(
+              {
+                $or: [
+                  { 'variants.sku': variantId },
+                  { 'variants._id': variantId },
+                ],
+              },
+              { $inc: { 'variants.$.availableStock': quantity } },
+              { new: true, session },
+            )
+            .exec();
+
+          if (!updatedProduct) {
+            throw new InternalServerErrorException(
+              `Failed to update stock for ${item.productName || item.itemName || variantId}`,
+            );
+          }
+
+          const updatedVariant = updatedProduct.variants.find(
+            (variant) =>
+              variant.sku === variantId ||
+              String((variant as { _id?: unknown })._id) === variantId,
+          );
+
+          if (!updatedVariant) {
+            throw new InternalServerErrorException(
+              `Failed to resolve updated stock for ${item.productName || item.itemName || variantId}`,
+            );
+          }
+
+          await this.stockLedgerModel.create(
+            [
+              {
+                productId: currentProduct._id,
+                sku: previousVariant.sku,
+                quantityChange: quantity,
+                transactionType: StockTransactionType.PURCHASE,
+                referenceId: data.purchaseInvoiceNumber,
+                previousStock: Number(previousVariant.availableStock || 0),
+                newStock: Number(updatedVariant.availableStock || 0),
+                notes: this.buildStockMovementNote(
+                  data.purchaseInvoiceNumber,
+                  item,
+                ),
+              },
+            ],
+            { session },
+          );
+        }
+
+        const purchaseAmount = Number(
+          data.totalNetAmount || data.total || data.subTotal || 0,
+        );
+
+        if (purchaseAmount > 0) {
+          await this.journalVoucherService.createDoubleEntry(
             {
-              session,
+              voucherNumber: data.purchaseInvoiceNumber,
               referenceId: data.purchaseInvoiceNumber,
-              transactionType: StockTransactionType.PURCHASE,
-              notes: this.buildStockMovementNote(
-                data.purchaseInvoiceNumber,
-                item,
-              ),
+              transactionDate: data.invoiceDate || new Date(),
+              description: `Purchase Invoice Posted - ${data.purchaseInvoiceNumber}`,
+              debitEntry: {
+                accountNumber: 'Inventory',
+                amount: purchaseAmount,
+              },
+              creditEntry: {
+                accountNumber: 'Accounts Payable',
+                amount: purchaseAmount,
+              },
             },
+            session,
           );
         }
       });

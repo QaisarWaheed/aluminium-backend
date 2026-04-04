@@ -82,6 +82,10 @@ describe('POS golden path (e2e)', () => {
   });
 
   beforeEach(async () => {
+    if (!connection.db) {
+      throw new Error('Database connection is not initialized');
+    }
+
     await connection.db.dropDatabase();
 
     const userService = app.get(UserService);

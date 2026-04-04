@@ -14,9 +14,12 @@ import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { PaginationDto } from '../../../../../common/dtos/pagination.dto';
 import { PaginatedResult } from '../../../../../common/interfaces/paginated-result.interface';
 import { JournalvoucherService } from '../../../../Accounts/journalVoucher/services/journalvoucher/journalvoucher.service';
-import { CreateJournalVoucherDto } from '../../../../Accounts/journalVoucher/dtos/create-journal-voucher/create-journal-voucher.dto';
 import { ProductService } from '../../../../products/services/product.service';
-import { StockTransactionType } from '../../../../products/entities/StockLedger.entity';
+import {
+  StockLedger,
+  StockTransactionType,
+} from '../../../../products/entities/StockLedger.entity';
+import { Product } from '../../../../products/entities/Product.entity';
 import { StockMovementService } from '../../../../products/services/stock-movement.service';
 import { SessionService } from 'src/features/session/session.service';
 
@@ -70,6 +73,10 @@ export class SaleInvoiceService {
     private readonly connection: Connection,
     @InjectModel('SalesInvoice')
     private readonly saleInvoiceModel: Model<SalesInvoice>,
+    @InjectModel(Product.name)
+    private readonly productModel: Model<Product>,
+    @InjectModel(StockLedger.name)
+    private readonly stockLedgerModel: Model<StockLedger>,
     private readonly journalVoucherService: JournalvoucherService,
     private readonly productService: ProductService,
     private readonly stockMovementService: StockMovementService,
@@ -164,16 +171,69 @@ export class SaleInvoiceService {
       await session.withTransaction(async () => {
         // Abort before invoice creation if stock is not available.
         if (data.items && data.items.length > 0) {
-          const stockValidation = await this.validateStockAvailability(
-            data.items,
-            allowNegativeStock,
-            session,
-          );
+          for (const rawItem of data.items) {
+            const item = rawItem as unknown as SalesInvoiceLineItem;
+            if (!item.sku || !item.quantity) continue;
 
-          if (!stockValidation.isValid) {
-            throw new BadRequestException(
-              `Stock validation failed: ${stockValidation.errors.join('; ')}`,
+            const quantityToDeduct = Number(item.quantity);
+
+            // Fetch current state inside transaction locking
+            const currentProduct = await this.productModel
+              .findOne({ 'variants.sku': item.sku })
+              .session(session)
+              .exec();
+
+            if (!currentProduct) {
+              throw new NotFoundException(
+                `Product containing SKU ${item.sku} not found`,
+              );
+            }
+
+            const variant = currentProduct.variants.find(
+              (v) => v.sku === item.sku,
             );
+            if (
+              !allowNegativeStock &&
+              (variant?.availableStock || 0) < quantityToDeduct
+            ) {
+              throw new BadRequestException(
+                `Insufficient stock for ${item.itemName} (${item.thickness} - ${item.color}). Available: ${variant?.availableStock || 0}, Required: ${quantityToDeduct}`,
+              );
+            }
+
+            // ATOMIC DEDUCTION
+            const updatedProduct = await this.productModel
+              .findOneAndUpdate(
+                { 'variants.sku': item.sku },
+                { $inc: { 'variants.$.availableStock': -quantityToDeduct } },
+                { new: true, session },
+              )
+              .exec();
+
+            if (!updatedProduct) {
+              throw new InternalServerErrorException(
+                `Failed to update stock for SKU ${item.sku}`,
+              );
+            }
+
+            const updatedVariant = updatedProduct.variants.find(
+              (v) => v.sku === item.sku,
+            );
+
+            // Create Stock Ledger Entry
+            const ledgerEntry = new this.stockLedgerModel({
+              productId: currentProduct._id,
+              sku: item.sku,
+              quantityChange: -quantityToDeduct,
+              transactionType: StockTransactionType.SALE,
+              referenceId: data.invoiceNumber,
+              previousStock: variant?.availableStock || 0,
+              newStock: updatedVariant?.availableStock || 0,
+              notes: `Sale posted - ${data.invoiceNumber} - ${item.itemName || 'Variant'}`,
+              createdBy: userId,
+            });
+
+            await ledgerEntry.save({ session });
           }
         }
 
@@ -191,28 +251,36 @@ export class SaleInvoiceService {
         );
         invoice = createdInvoice[0];
 
-        if (data.items && data.items.length > 0) {
-          await this.processStockDeduction(
-            data.invoiceNumber,
-            data.items,
-            session,
-          );
-        }
-
         const customerName = getCustomerName(
           data.customer as SalesInvoiceCustomer,
         );
+        const invoiceAmount = Number(
+          data.totalNetAmount || data.amount || data.subTotal || 0,
+        );
 
-        const journalDto: CreateJournalVoucherDto = {
-          date: data.invoiceDate || new Date(),
-          voucherNumber: data.invoiceNumber,
-          accountNumber: customerName,
-          description: `Bill Created - ${data.invoiceNumber}`,
-          debit: data.totalNetAmount || 0,
-          credit: data.receivedAmount || 0,
-        };
-
-        await this.journalVoucherService.create(journalDto, session);
+        if (invoiceAmount > 0) {
+          await this.journalVoucherService.createDoubleEntry(
+            {
+              voucherNumber: data.invoiceNumber,
+              referenceId: data.invoiceNumber,
+              transactionDate: data.invoiceDate || new Date(),
+              description: `Sale Invoice Posted - ${data.invoiceNumber}`,
+              debitEntry: {
+                accountNumber:
+                  data.receivedAmount &&
+                  Number(data.receivedAmount) >= invoiceAmount
+                    ? 'Cash'
+                    : `Accounts Receivable - ${customerName}`,
+                amount: invoiceAmount,
+              },
+              creditEntry: {
+                accountNumber: 'Sales Revenue',
+                amount: invoiceAmount,
+              },
+            },
+            session,
+          );
+        }
       });
 
       if (!invoice) {
@@ -299,20 +367,38 @@ export class SaleInvoiceService {
         const customerName = getCustomerName(
           data.customer as SalesInvoiceCustomer,
         );
+        const invoiceAmount = Number(
+          data.totalNetAmount || data.amount || data.subTotal || 0,
+        );
 
-        const journalUpdate: Partial<CreateJournalVoucherDto> = {
-          date: data.invoiceDate,
-          accountNumber: customerName,
-          debit: data.totalNetAmount || 0,
-          credit: data.receivedAmount || 0,
-          description: `Bill Updated - ${invoiceNumber}`,
-        };
-
-        await this.journalVoucherService.updateByVoucherNumber(
+        await this.journalVoucherService.deleteByReferenceId(
           invoiceNumber,
-          journalUpdate,
           session,
         );
+
+        if (invoiceAmount > 0) {
+          await this.journalVoucherService.createDoubleEntry(
+            {
+              voucherNumber: invoiceNumber,
+              referenceId: invoiceNumber,
+              transactionDate: data.invoiceDate || new Date(),
+              description: `Sale Invoice Updated - ${invoiceNumber}`,
+              debitEntry: {
+                accountNumber:
+                  data.receivedAmount &&
+                  Number(data.receivedAmount) >= invoiceAmount
+                    ? 'Cash'
+                    : `Accounts Receivable - ${customerName}`,
+                amount: invoiceAmount,
+              },
+              creditEntry: {
+                accountNumber: 'Sales Revenue',
+                amount: invoiceAmount,
+              },
+            },
+            session,
+          );
+        }
       });
 
       return updatedInvoice;
@@ -344,13 +430,8 @@ export class SaleInvoiceService {
           session,
         );
 
-        await this.journalVoucherService.updateByVoucherNumber(
+        await this.journalVoucherService.deleteByReferenceId(
           invoiceNumber,
-          {
-            debit: 0,
-            credit: 0,
-            description: `Bill Cancelled - ${invoiceNumber}`,
-          },
           session,
         );
 

@@ -10,6 +10,7 @@ import { Connection, Model } from 'mongoose';
 import { CreatePurchaseReturnDto } from '../dtos/CreatePurchaseReturn.dto';
 import { StockMovementService } from 'src/features/products/services/stock-movement.service';
 import { StockTransactionType } from 'src/features/products/entities/StockLedger.entity';
+import { JournalvoucherService } from 'src/features/Accounts/journalVoucher/services/journalvoucher/journalvoucher.service';
 
 type SupplierLike = { name?: string } | Array<{ name?: string }>;
 
@@ -40,6 +41,7 @@ export class PurchaseReturnService {
     @InjectModel('PurchaseReturn')
     private readonly purchaseReturnModel: Model<PurchaseReturn>,
     private readonly stockMovementService: StockMovementService,
+    private readonly journalVoucherService: JournalvoucherService,
   ) {}
 
   async findAll(): Promise<PurchaseReturn[]> {
@@ -104,6 +106,28 @@ export class PurchaseReturnService {
               transactionType: StockTransactionType.RETURN,
               notes: this.buildReturnNote(data.returnNumber, item),
             },
+          );
+        }
+
+        const returnAmount = Number(data.total || data.subTotal || 0);
+
+        if (returnAmount > 0) {
+          await this.journalVoucherService.createDoubleEntry(
+            {
+              voucherNumber: data.returnNumber,
+              referenceId: data.returnNumber,
+              transactionDate: data.returnDate || new Date(),
+              description: `Purchase Return Posted - ${data.returnNumber}`,
+              debitEntry: {
+                accountNumber: 'Accounts Payable',
+                amount: returnAmount,
+              },
+              creditEntry: {
+                accountNumber: 'Inventory',
+                amount: returnAmount,
+              },
+            },
+            session,
           );
         }
       });

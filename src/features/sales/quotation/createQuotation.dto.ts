@@ -1,40 +1,71 @@
 /* eslint-disable prettier/prettier */
 import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsArray,
+  IsDateString,
+  IsNumber,
+  IsObject,
+  IsOptional,
+  IsString,
+} from 'class-validator';
+import { Transform } from 'class-transformer';
 import { Product } from 'src/features/products/entities/Product.entity';
 import { Customer } from '../customer/entities/customer.entity';
 
 export class CreateQuotationDto {
+  @ApiProperty()
+  @IsDateString()
+  quotationDate!: Date;
 
   @ApiProperty()
-  quotationDate: Date;
-  @ApiProperty()
-  quotationNumber: string;
+  @IsString()
+  quotationNumber!: string;
 
   @ApiProperty()
-  products: Product[];
+  @IsArray()
+  @IsObject({ each: true })
+  products!: Product[];
 
   @ApiProperty()
-  length: string;
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === null || value === undefined ? undefined : String(value),
+  )
+  @IsString()
+  length?: string;
 
   @ApiProperty({ type: [Object], description: 'Array of customer objects' })
-  customer: Customer;
+  @IsOptional()
+  @IsObject()
+  customer?: Customer;
 
   @ApiProperty()
-  remarks: string;
+  @IsOptional()
+  @IsString()
+  remarks?: string;
 
   @ApiProperty()
-  subTotal: number;
+  @IsOptional()
+  @IsNumber()
+  subTotal?: number;
 
   @ApiProperty()
-  totalGrossAmount: number;
+  @IsOptional()
+  @IsNumber()
+  totalGrossAmount?: number;
 
   @ApiProperty()
-  totalDiscount: number;
+  @IsOptional()
+  @IsNumber()
+  totalDiscount?: number;
 
   @ApiProperty()
-  totalNetAmount: number;
+  @IsOptional()
+  @IsNumber()
+  totalNetAmount?: number;
 
   @ApiProperty()
-  discount: number;
-
+  @IsOptional()
+  @IsNumber()
+  discount?: number;
 }

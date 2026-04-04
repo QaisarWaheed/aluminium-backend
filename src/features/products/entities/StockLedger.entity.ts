@@ -19,7 +19,7 @@ export class StockLedger {
 
   @ApiProperty({ enum: StockTransactionType })
   @Prop({ type: String, enum: StockTransactionType, required: true })
-  transactionType: StockTransactionType;
+  transactionType!: StockTransactionType;
 
   @ApiProperty()
   @Prop()
@@ -27,31 +27,31 @@ export class StockLedger {
 
   @ApiProperty()
   @Prop({ required: true })
-  productId: mongoose.Types.ObjectId;
+  productId!: mongoose.Types.ObjectId;
 
   @ApiProperty()
   @Prop({ required: true })
-  sku: string; // Variant SKU
+  sku!: string; // Variant SKU
 
   @ApiProperty()
   @Prop({ required: true })
-  quantityChange: number; // Positive for inward, negative for outward
+  quantityChange!: number; // Positive for inward, negative for outward
 
   @ApiProperty()
   @Prop({ required: true })
-  previousStock: number;
+  previousStock!: number;
 
   @ApiProperty()
   @Prop({ required: true })
-  newStock: number;
+  newStock!: number;
 
   @ApiProperty()
   @Prop()
-  notes: string;
+  notes?: string;
 
   @ApiProperty()
   @Prop()
-  createdBy: string; // User ID who performed the transaction
+  createdBy?: string; // User ID who performed the transaction
 
   declare createdAt: Date;
 
