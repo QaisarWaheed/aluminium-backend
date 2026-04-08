@@ -20,6 +20,7 @@ export type AdjustStockOptions = {
   transactionType?: StockTransactionType;
   notes?: string;
   createdBy?: string;
+  expectedBrand?: string;
   session?: ClientSession;
 };
 
@@ -30,6 +31,7 @@ type VariantWithId = {
   openingStock?: number;
   thickness?: string;
   color?: string;
+  length?: string;
 };
 
 type ProductWithVariant = {
@@ -41,6 +43,8 @@ type ProductWithVariant = {
 type StockMovementResult = {
   productId: string;
   sku: string;
+  brand?: string;
+  length?: string;
   previousStock: number;
   newStock: number;
 };
@@ -78,6 +82,14 @@ export class StockMovementService {
     const quantityChange = type === 'IN' ? quantity : -quantity;
     const newStock = previousStock + quantityChange;
 
+    const expectedBrand = String(options.expectedBrand || '').trim();
+    const resolvedBrand = String(variantContext.product.brand || '').trim();
+    if (expectedBrand && resolvedBrand && expectedBrand !== resolvedBrand) {
+      throw new BadRequestException(
+        `Brand mismatch for variant ${variantContext.variant.sku ?? variantId}. Expected '${expectedBrand}' but product belongs to '${resolvedBrand}'.`,
+      );
+    }
+
     if (newStock < 0) {
       throw new BadRequestException(
         `Insufficient stock for variant ${variantContext.variant.sku ?? variantId}`,
@@ -96,6 +108,8 @@ export class StockMovementService {
       referenceId: options.referenceId,
       productId: variantContext.product._id.toString(),
       sku: variantContext.variant.sku ?? variantId,
+      brand: variantContext.product.brand,
+      length: variantContext.variant.length,
       quantityChange,
       previousStock,
       notes: options.notes,
@@ -110,6 +124,8 @@ export class StockMovementService {
     return {
       productId: variantContext.product._id.toString(),
       sku: variantContext.variant.sku ?? variantId,
+      brand: variantContext.product.brand,
+      length: variantContext.variant.length,
       previousStock,
       newStock,
     };

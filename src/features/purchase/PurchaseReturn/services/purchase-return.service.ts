@@ -21,8 +21,10 @@ type PurchaseReturnLineItem = {
   quantity?: number;
   itemName?: string;
   productName?: string;
+  brand?: string;
   thickness?: string;
   color?: string;
+  length?: string;
 };
 
 function getSupplierName(supplier: SupplierLike): string {
@@ -104,6 +106,7 @@ export class PurchaseReturnService {
               session,
               referenceId: data.returnNumber,
               transactionType: StockTransactionType.RETURN,
+              expectedBrand: item.brand,
               notes: this.buildReturnNote(data.returnNumber, item),
             },
           );
@@ -194,7 +197,9 @@ export class PurchaseReturnService {
     item: PurchaseReturnLineItem,
   ): string {
     const productLabel = item.itemName || item.productName || 'Variant';
-    const attributes = [item.thickness, item.color].filter(Boolean).join(' / ');
+    const attributes = [item.thickness, item.color, item.length]
+      .filter(Boolean)
+      .join(' / ');
 
     return attributes
       ? `Purchase return ${returnNumber} - ${productLabel} (${attributes})`

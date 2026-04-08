@@ -1,14 +1,29 @@
 /* eslint-disable prettier/prettier */
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { ProductVariantLength } from '../entities/Product.entity';
+
+const ALLOWED_LENGTHS = Object.values(ProductVariantLength);
 
 @Injectable()
 export class SkuService {
   /**
-   * Generate SKU from item name, thickness, and color
-   * Format: [ItemName]-[Thickness]-[Color]
-   * Example: D10-1.2mm-DULL becomes D10-1.2-DUL
+   * Generate SKU from item name, thickness, color, and length
+   * Format: [ItemName]-[Thickness]-[Color]-[Length]
+   * Example: D10-1.2mm-DULL-12ft becomes D10-1.2-DUL-12FT
    */
-  generateSku(itemName: string, thickness: string, color: string): string {
+  generateSku(
+    itemName: string,
+    thickness: string,
+    color: string,
+    length: string,
+  ): string {
+    const normalizedLength = String(length ?? '').trim();
+    if (!ALLOWED_LENGTHS.includes(normalizedLength as ProductVariantLength)) {
+      throw new BadRequestException(
+        `Invalid length '${normalizedLength}'. Allowed lengths are: ${ALLOWED_LENGTHS.join(', ')}`,
+      );
+    }
+
     // Clean and format item name - remove spaces, special chars, uppercase
     const cleanItemName = itemName
       .replace(/[^a-zA-Z0-9]/g, '')
@@ -24,15 +39,15 @@ export class SkuService {
       .toUpperCase()
       .substring(0, 3); // Max 3 chars
 
-    return `${cleanItemName}-${cleanThickness}-${cleanColor}`;
+    return `${cleanItemName}-${cleanThickness}-${cleanColor}-${normalizedLength}`;
   }
 
   /**
    * Validate SKU format
    */
   isValidSku(sku: string): boolean {
-    // Basic format validation: XXX-X.X-XXX
-    const skuPattern = /^[A-Z0-9]+-[0-9.]+[A-Z]{3}$/;
+    // Basic format validation: ITEM-THICKNESS-COLOR-LENGTH
+    const skuPattern = /^[A-Z0-9]+-[0-9.]+-[A-Z]{3}-[A-Z0-9.]+(?:-[0-9]+)?$/;
     return skuPattern.test(sku);
   }
 
@@ -43,9 +58,10 @@ export class SkuService {
     itemName: string,
     thickness: string,
     color: string,
+    length: string,
     existingSkus: string[],
   ): string {
-    const baseSku = this.generateSku(itemName, thickness, color);
+    const baseSku = this.generateSku(itemName, thickness, color, length);
     let uniqueSku = baseSku;
     let counter = 1;
 

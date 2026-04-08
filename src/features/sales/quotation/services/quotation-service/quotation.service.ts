@@ -6,6 +6,14 @@ import { Quotation } from '../../quotation.entity';
 import { CreateQuotationDto } from '../../createQuotation.dto';
 import { JournalvoucherService } from '../../../../Accounts/journalVoucher/services/journalvoucher/journalvoucher.service';
 import { CreateJournalVoucherDto } from '../../../../Accounts/journalVoucher/dtos/create-journal-voucher/create-journal-voucher.dto';
+import { Product } from 'src/features/products/entities/Product.entity';
+
+type QuotationLineItem = {
+  sku?: string;
+  productId?: string;
+  _id?: string;
+  brand?: string;
+};
 
 type QuotationCustomer = { name?: string } | Array<{ name?: string }> | null;
 
@@ -22,8 +30,46 @@ export class QuotationService {
   constructor(
     @InjectModel('Quotation')
     private readonly saleInvoiceModel: Model<Quotation>,
+    @InjectModel(Product.name)
+    private readonly productModel: Model<Product>,
     private readonly journalVoucherService: JournalvoucherService,
   ) {}
+
+  private async normalizeBrandsFromProductMaster(
+    data: CreateQuotationDto,
+  ): Promise<CreateQuotationDto> {
+    const products = Array.isArray(data.products)
+      ? data.products.map((item) => ({
+          ...(item as unknown as Record<string, unknown>),
+        }))
+      : [];
+
+    for (const rawItem of products) {
+      const item = rawItem as unknown as QuotationLineItem;
+      const variantId = String(item.sku || item.productId || item._id || '');
+      if (!variantId) continue;
+
+      const sourceProduct = await this.productModel
+        .findOne({
+          $or: [
+            { 'variants.sku': variantId },
+            { 'variants._id': variantId },
+            { _id: variantId },
+          ],
+        })
+        .select('brand')
+        .exec();
+
+      if (sourceProduct?.brand) {
+        rawItem.brand = sourceProduct.brand;
+      }
+    }
+
+    return {
+      ...data,
+      products: products as unknown as CreateQuotationDto['products'],
+    };
+  }
 
   async findAll(): Promise<Quotation[]> {
     return await this.saleInvoiceModel.find();
@@ -34,18 +80,19 @@ export class QuotationService {
   }
 
   async createInvoice(data: CreateQuotationDto): Promise<Quotation> {
-    const quotation = await this.saleInvoiceModel.create(data);
+    const normalizedData = await this.normalizeBrandsFromProductMaster(data);
+    const quotation = await this.saleInvoiceModel.create(normalizedData);
 
     // Ledger Entry for Quotation
     try {
       const customerName = getQuotationCustomerName(
-        data.customer as QuotationCustomer,
+        normalizedData.customer as QuotationCustomer,
       );
       const journalDto: CreateJournalVoucherDto = {
         date: new Date(), // Quotation date usually today
-        voucherNumber: data.quotationNumber,
+        voucherNumber: normalizedData.quotationNumber,
         accountNumber: customerName,
-        description: `Quotation Created - ${data.quotationNumber}`,
+        description: `Quotation Created - ${normalizedData.quotationNumber}`,
         debit: 0, // No financial impact yet
         credit: 0,
       };
@@ -64,7 +111,9 @@ export class QuotationService {
     id: string,
     data: CreateQuotationDto,
   ): Promise<Quotation | null> {
-    return await this.saleInvoiceModel.findByIdAndUpdate(id, data, {
+    const normalizedData = await this.normalizeBrandsFromProductMaster(data);
+
+    return await this.saleInvoiceModel.findByIdAndUpdate(id, normalizedData, {
       new: true,
     });
   }

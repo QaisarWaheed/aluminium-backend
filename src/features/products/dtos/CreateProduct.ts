@@ -3,13 +3,14 @@ import {
   IsNotEmpty,
   IsNumber,
   IsEnum,
+  IsIn,
   IsOptional,
   IsArray,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
-import { Unit } from '../entities/Product.entity';
+import { ProductVariantLength, Unit } from '../entities/Product.entity';
 
 export class CreateProductVariantDto {
   @ApiProperty()
@@ -27,9 +28,19 @@ export class CreateProductVariantDto {
   @IsNotEmpty()
   color: string;
 
+  @ApiProperty({ enum: ProductVariantLength })
+  @IsIn(Object.values(ProductVariantLength))
+  @IsNotEmpty()
+  length: ProductVariantLength;
+
   @ApiProperty()
   @IsNumber()
   salesRate: number;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  purchasePrice?: number;
 
   @ApiProperty()
   @IsNumber()

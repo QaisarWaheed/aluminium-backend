@@ -18,6 +18,40 @@ import {
 } from './stock-ledger.service';
 import { StockTransactionType } from '../entities/StockLedger.entity';
 
+export type StockValuationRow = {
+  productId: string;
+  productName: string;
+  category: string;
+  brand: string;
+  sku: string;
+  thickness: string;
+  color: string;
+  length: string;
+  availableStock: number;
+  totalFeet: number;
+  salesRate: number;
+  inventoryValue: number;
+};
+
+export type StockValuationSummary = {
+  totalItems: number;
+  totalRunningFeet: number;
+  totalInventoryValue: number;
+};
+
+export type GroupedValuationSummary = {
+  totalItems: number;
+  totalRunningFeet: number;
+  totalInventoryValue: number;
+};
+
+export type StockValuationReport = {
+  summary: StockValuationSummary;
+  groupedByCategory: Record<string, GroupedValuationSummary>;
+  groupedByBrand: Record<string, GroupedValuationSummary>;
+  rows: StockValuationRow[];
+};
+
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -84,6 +118,12 @@ export class ProductService {
                   },
                 },
                 {
+                  'variants.length': {
+                    $regex: escapeRegex(trimmedSearch),
+                    $options: 'i',
+                  },
+                },
+                {
                   'variants.thickness': {
                     $regex: escapeRegex(trimmedSearch),
                     $options: 'i',
@@ -145,6 +185,7 @@ export class ProductService {
           product.itemName,
           variant.thickness,
           variant.color,
+          variant.length,
           existingSkus,
         );
 
@@ -172,9 +213,10 @@ export class ProductService {
           transactionType: StockTransactionType.OPENING_STOCK,
           productId: newProduct._id.toString(),
           sku: variant.sku,
+          length: variant.length,
           quantityChange: variant.openingStock || 0,
           previousStock: 0,
-          notes: `Opening stock for ${product.itemName} - ${variant.thickness} - ${variant.color}`,
+          notes: `Opening stock for ${product.itemName} - ${variant.thickness} - ${variant.color} - ${variant.length}`,
         }));
 
       if (stockEntries.length > 0) {
@@ -217,7 +259,9 @@ export class ProductService {
           // Check if this variant already exists (by thickness + color)
           const existingVariant = existingProduct.variants?.find(
             (v) =>
-              v.thickness === variant.thickness && v.color === variant.color,
+              v.thickness === variant.thickness &&
+              v.color === variant.color &&
+              v.length === variant.length,
           );
 
           if (existingVariant) {
@@ -234,6 +278,7 @@ export class ProductService {
               productUpdate.itemName || existingProduct.itemName,
               variant.thickness,
               variant.color,
+              variant.length,
               existingSkus,
             );
 
@@ -253,7 +298,9 @@ export class ProductService {
         const newVariants = processedVariants.filter((variant) => {
           const existingVariant = existingProduct.variants?.find(
             (v) =>
-              v.thickness === variant.thickness && v.color === variant.color,
+              v.thickness === variant.thickness &&
+              v.color === variant.color &&
+              v.length === variant.length,
           );
           return (
             !existingVariant && variant.openingStock && variant.openingStock > 0
@@ -265,9 +312,10 @@ export class ProductService {
             transactionType: StockTransactionType.OPENING_STOCK,
             productId: _id,
             sku: variant.sku,
+            length: variant.length,
             quantityChange: variant.openingStock || 0,
             previousStock: 0,
-            notes: `Opening stock for new variant ${productUpdate.itemName || existingProduct.itemName} - ${variant.thickness} - ${variant.color}`,
+            notes: `Opening stock for new variant ${productUpdate.itemName || existingProduct.itemName} - ${variant.thickness} - ${variant.color} - ${variant.length}`,
           }),
         );
 
@@ -366,5 +414,87 @@ export class ProductService {
       })),
       session ? { session } : undefined,
     );
+  }
+
+  async getStockValuationReport(): Promise<StockValuationReport> {
+    const products = await this.productModel.find().lean().exec();
+
+    const rows: StockValuationRow[] = [];
+    const groupedByCategory: Record<string, GroupedValuationSummary> = {};
+    const groupedByBrand: Record<string, GroupedValuationSummary> = {};
+
+    let totalItems = 0;
+    let totalRunningFeet = 0;
+    let totalInventoryValue = 0;
+
+    for (const product of products) {
+      const category = String(product.category || 'Uncategorized');
+      const brand = String(product.brand || 'Unbranded');
+      const variants = Array.isArray(product.variants) ? product.variants : [];
+
+      for (const variant of variants) {
+        const availableStock = Number(variant.availableStock || 0);
+        const salesRate = Number(variant.salesRate || 0);
+        const length = String(variant.length || '0');
+        const lengthNumber = Number(length);
+        const totalFeet =
+          availableStock * (Number.isFinite(lengthNumber) ? lengthNumber : 0);
+        const inventoryValue = availableStock * salesRate;
+
+        rows.push({
+          productId: String(product._id),
+          productName: String(product.itemName || ''),
+          category,
+          brand,
+          sku: String(variant.sku || ''),
+          thickness: String(variant.thickness || ''),
+          color: String(variant.color || ''),
+          length,
+          availableStock,
+          totalFeet,
+          salesRate,
+          inventoryValue,
+        });
+
+        totalItems += availableStock;
+        totalRunningFeet += totalFeet;
+        totalInventoryValue += inventoryValue;
+
+        if (!groupedByCategory[category]) {
+          groupedByCategory[category] = {
+            totalItems: 0,
+            totalRunningFeet: 0,
+            totalInventoryValue: 0,
+          };
+        }
+
+        if (!groupedByBrand[brand]) {
+          groupedByBrand[brand] = {
+            totalItems: 0,
+            totalRunningFeet: 0,
+            totalInventoryValue: 0,
+          };
+        }
+
+        groupedByCategory[category].totalItems += availableStock;
+        groupedByCategory[category].totalRunningFeet += totalFeet;
+        groupedByCategory[category].totalInventoryValue += inventoryValue;
+
+        groupedByBrand[brand].totalItems += availableStock;
+        groupedByBrand[brand].totalRunningFeet += totalFeet;
+        groupedByBrand[brand].totalInventoryValue += inventoryValue;
+      }
+    }
+
+    return {
+      summary: {
+        totalItems,
+        totalRunningFeet,
+        totalInventoryValue,
+      },
+      groupedByCategory,
+      groupedByBrand,
+      rows,
+    };
   }
 }

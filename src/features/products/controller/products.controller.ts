@@ -23,6 +23,11 @@ import { PaginationDto } from '../../../common/dtos/pagination.dto';
 export class ProductsController {
   constructor(private readonly productService: ProductService) {}
 
+  @Get('/reports/valuation')
+  async getStockValuationReport() {
+    return this.productService.getStockValuationReport();
+  }
+
   @Get()
   async getAllProducts(@Query() paginationDto: PaginationDto) {
     const products = await this.productService.findAll(paginationDto);

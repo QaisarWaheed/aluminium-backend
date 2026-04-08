@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import salesInvoiceSchema from './salesInvoice/salesinvoice.entity';
 import salesReturnSchema from './salesReturn/salesReturn.entity';
 import { SaleInvoiceController } from './salesInvoice/controllers/sale-invoice/sale-invoice.controller';
+import { SalesAnalyticsController } from './salesInvoice/controllers/sale-invoice/sales-analytics.controller';
 import { SaleInvoiceService } from './salesInvoice/services/sale-invoice/sale-invoice.service';
 import { SalesReturnController } from './salesReturn/controllers/sale-invoice/sale-return.controller';
 import { SalesReturnService } from './salesReturn/services/sale-invoice/sale-return.service';
@@ -35,6 +36,7 @@ import { JournalVoucher } from '../Accounts/journalVoucher/journalVoucher';
   ],
   controllers: [
     SaleInvoiceController,
+    SalesAnalyticsController,
     SalesReturnController,
     CustomerController,
     QuotationController,

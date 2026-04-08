@@ -11,6 +11,12 @@ export enum Unit {
   SQFT = 'sqft',
 }
 
+export enum ProductVariantLength {
+  L14 = '14',
+  L16 = '16',
+  L18 = '18',
+}
+
 @Schema()
 export class ProductVariant {
   @ApiProperty()
@@ -25,9 +31,17 @@ export class ProductVariant {
   @Prop({ required: true })
   color: string;
 
+  @ApiProperty({ enum: ProductVariantLength })
+  @Prop({ required: true, enum: Object.values(ProductVariantLength) })
+  length: ProductVariantLength;
+
   @ApiProperty()
   @Prop({ required: true })
   salesRate: number;
+
+  @ApiProperty()
+  @Prop({ required: true, default: 0 })
+  purchasePrice: number;
 
   @ApiProperty()
   @Prop({ default: 0 })
@@ -79,5 +93,11 @@ export class Product {
 
 const productSchema = SchemaFactory.createForClass(Product);
 productSchema.index({ 'variants.sku': 1 }, { unique: true });
+productSchema.index({
+  itemName: 1,
+  'variants.thickness': 1,
+  'variants.color': 1,
+  'variants.length': 1,
+});
 productSchema.index({ createdAt: -1 });
 export { productSchema };

@@ -12,6 +12,8 @@ export interface StockTransactionDto {
   referenceId?: string;
   productId: string;
   sku: string;
+  brand?: string;
+  length?: string;
   quantityChange: number;
   previousStock: number;
   notes?: string;

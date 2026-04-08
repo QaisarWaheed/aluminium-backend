@@ -23,8 +23,10 @@ type SalesReturnLineItem = {
   quantity?: number;
   itemName?: string;
   productName?: string;
+  brand?: string;
   thickness?: string;
   color?: string;
+  length?: string;
 };
 
 type SalesReturnPayload = CreateSalesReturnDto & {
@@ -122,6 +124,14 @@ export class SalesReturnService {
             );
           }
 
+          const expectedBrand = String(item.brand || '').trim();
+          const actualBrand = String(currentProduct.brand || '').trim();
+          if (expectedBrand && actualBrand && expectedBrand !== actualBrand) {
+            throw new BadRequestException(
+              `Brand mismatch for ${item.productName || item.itemName || variantId}. Expected '${expectedBrand}' but product belongs to '${actualBrand}'.`,
+            );
+          }
+
           const previousVariant = currentProduct.variants.find(
             (variant) =>
               variant.sku === variantId ||
@@ -170,6 +180,8 @@ export class SalesReturnService {
               {
                 productId: currentProduct._id,
                 sku: previousVariant.sku,
+                brand: currentProduct.brand,
+                length: previousVariant.length,
                 quantityChange: quantity,
                 transactionType: StockTransactionType.RETURN,
                 referenceId: data.invoiceNumber,
@@ -247,7 +259,9 @@ export class SalesReturnService {
     item: SalesReturnLineItem,
   ): string {
     const productLabel = item.itemName || item.productName || 'Variant';
-    const attributes = [item.thickness, item.color].filter(Boolean).join(' / ');
+    const attributes = [item.thickness, item.color, item.length]
+      .filter(Boolean)
+      .join(' / ');
 
     return attributes
       ? `Sales return ${invoiceNumber} - ${productLabel} (${attributes})`

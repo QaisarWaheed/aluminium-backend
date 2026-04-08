@@ -26,8 +26,10 @@ type PurchaseInvoiceLineItem = {
   quantity?: number;
   productName?: string;
   itemName?: string;
+  brand?: string;
   thickness?: string;
   color?: string;
+  length?: string;
 };
 
 function escapeRegex(value: string): string {
@@ -158,6 +160,14 @@ export class PurchaseInvoiceService {
             );
           }
 
+          const expectedBrand = String(item.brand || '').trim();
+          const actualBrand = String(currentProduct.brand || '').trim();
+          if (expectedBrand && actualBrand && expectedBrand !== actualBrand) {
+            throw new BadRequestException(
+              `Brand mismatch for ${item.productName || item.itemName || variantId}. Expected '${expectedBrand}' but product belongs to '${actualBrand}'.`,
+            );
+          }
+
           const previousVariant = currentProduct.variants.find(
             (variant) =>
               variant.sku === variantId ||
@@ -207,6 +217,8 @@ export class PurchaseInvoiceService {
               {
                 productId: currentProduct._id,
                 sku: previousVariant.sku,
+                brand: currentProduct.brand,
+                length: previousVariant.length,
                 quantityChange: quantity,
                 transactionType: StockTransactionType.PURCHASE,
                 referenceId: data.purchaseInvoiceNumber,
@@ -316,7 +328,9 @@ export class PurchaseInvoiceService {
     item: PurchaseInvoiceLineItem,
   ): string {
     const productLabel = item.productName || item.itemName || 'Variant';
-    const attributes = [item.thickness, item.color].filter(Boolean).join(' / ');
+    const attributes = [item.thickness, item.color, item.length]
+      .filter(Boolean)
+      .join(' / ');
 
     return attributes
       ? `Purchase ${purchaseInvoiceNumber} - ${productLabel} (${attributes})`

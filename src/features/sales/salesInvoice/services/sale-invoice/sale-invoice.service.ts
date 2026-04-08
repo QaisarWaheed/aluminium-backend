@@ -28,9 +28,16 @@ type SalesInvoiceCustomer = { name?: string } | Array<{ name?: string }> | null;
 type SalesInvoiceLineItem = {
   sku?: string;
   quantity?: number;
+  amount?: number;
+  totalNetAmount?: number;
+  salesRate?: number;
+  purchasePrice?: number;
+  costPrice?: number;
   itemName?: string;
+  brand?: string;
   thickness?: string;
   color?: string;
+  length?: string;
   productId?: string | Types.ObjectId;
   _id?: string | Types.ObjectId;
 };
@@ -39,12 +46,35 @@ type AggregatedInvoiceLineItem = {
   variantId: string;
   quantity: number;
   itemName?: string;
+  brand?: string;
   thickness?: string;
   color?: string;
+  length?: string;
 };
 
 type StockAdjustment = AggregatedInvoiceLineItem & {
   direction: 'IN' | 'OUT';
+};
+
+type ProfitStatsPoint = {
+  date: string;
+  revenue: number;
+  cost: number;
+  profit: number;
+  marginPercent: number;
+};
+
+type ProfitStatsSummary = {
+  revenue: number;
+  cost: number;
+  profit: number;
+  marginPercent: number;
+};
+
+type ProfitStatsResponse = {
+  periodDays: number;
+  summary: ProfitStatsSummary;
+  daily: ProfitStatsPoint[];
 };
 
 function getCustomerName(customer: SalesInvoiceCustomer): string {
@@ -64,6 +94,30 @@ function normalizeId(value?: string | Types.ObjectId): string | null {
 
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function toNumber(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  return 0;
+}
+
+function round2(value: number): number {
+  return Number(value.toFixed(2));
+}
+
+function toDateKey(value: Date): string {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 @Injectable()
@@ -189,6 +243,14 @@ export class SaleInvoiceService {
               );
             }
 
+            const expectedBrand = String(item.brand || '').trim();
+            const actualBrand = String(currentProduct.brand || '').trim();
+            if (expectedBrand && actualBrand && expectedBrand !== actualBrand) {
+              throw new BadRequestException(
+                `Brand mismatch for ${item.itemName || item.sku}. Expected '${expectedBrand}' but product belongs to '${actualBrand}'.`,
+              );
+            }
+
             const variant = currentProduct.variants.find(
               (v) => v.sku === item.sku,
             );
@@ -224,6 +286,7 @@ export class SaleInvoiceService {
             const ledgerEntry = new this.stockLedgerModel({
               productId: currentProduct._id,
               sku: item.sku,
+              brand: currentProduct.brand,
               quantityChange: -quantityToDeduct,
               transactionType: StockTransactionType.SALE,
               referenceId: data.invoiceNumber,
@@ -448,6 +511,151 @@ export class SaleInvoiceService {
     }
   }
 
+  async getProfitStats(days = 30): Promise<ProfitStatsResponse> {
+    const safeDays = Math.min(Math.max(Math.trunc(days || 30), 1), 365);
+    const endDate = new Date();
+    endDate.setHours(23, 59, 59, 999);
+
+    const startDate = new Date();
+    startDate.setHours(0, 0, 0, 0);
+    startDate.setDate(startDate.getDate() - (safeDays - 1));
+
+    const invoices = await this.saleInvoiceModel
+      .find({
+        invoiceDate: { $gte: startDate, $lte: endDate },
+      })
+      .select('invoiceDate totalNetAmount amount subTotal items')
+      .lean()
+      .exec();
+
+    const skuSet = new Set<string>();
+    for (const invoice of invoices) {
+      const items = Array.isArray(invoice.items)
+        ? (invoice.items as SalesInvoiceLineItem[])
+        : [];
+      for (const item of items) {
+        if (item.sku) {
+          skuSet.add(String(item.sku));
+        }
+      }
+    }
+
+    const products =
+      skuSet.size > 0
+        ? await this.productModel
+            .find({ 'variants.sku': { $in: Array.from(skuSet) } })
+            .select('variants.sku variants.purchasePrice variants.salesRate')
+            .lean()
+            .exec()
+        : [];
+
+    const skuCostMap = new Map<string, number>();
+    for (const product of products) {
+      const variants = Array.isArray(product.variants)
+        ? (product.variants as Array<{
+            sku?: string;
+            purchasePrice?: number;
+            salesRate?: number;
+          }>)
+        : [];
+
+      for (const variant of variants) {
+        if (!variant.sku) {
+          continue;
+        }
+        const unitCost = Math.max(
+          0,
+          toNumber(variant.purchasePrice) || toNumber(variant.salesRate),
+        );
+        skuCostMap.set(String(variant.sku), unitCost);
+      }
+    }
+
+    const dailyMap = new Map<string, { revenue: number; cost: number }>();
+    const rollingDate = new Date(startDate);
+    while (rollingDate <= endDate) {
+      dailyMap.set(toDateKey(rollingDate), { revenue: 0, cost: 0 });
+      rollingDate.setDate(rollingDate.getDate() + 1);
+    }
+
+    for (const invoice of invoices) {
+      const invoiceDate = new Date(invoice.invoiceDate || new Date());
+      if (Number.isNaN(invoiceDate.getTime())) {
+        continue;
+      }
+      const dateKey = toDateKey(invoiceDate);
+      const bucket = dailyMap.get(dateKey);
+      if (!bucket) {
+        continue;
+      }
+
+      const revenue =
+        toNumber(invoice.totalNetAmount) ||
+        toNumber(invoice.amount) ||
+        toNumber(invoice.subTotal);
+
+      const items = Array.isArray(invoice.items)
+        ? (invoice.items as SalesInvoiceLineItem[])
+        : [];
+
+      const lineItemCost = items.reduce((sum, item) => {
+        const quantity = Math.max(0, toNumber(item.quantity));
+        if (quantity <= 0) {
+          return sum;
+        }
+
+        const inlineCost =
+          toNumber(item.purchasePrice) || toNumber(item.costPrice);
+        const mappedCost = item.sku ? toNumber(skuCostMap.get(item.sku)) : 0;
+        const unitCost = Math.max(0, inlineCost || mappedCost);
+
+        return sum + unitCost * quantity;
+      }, 0);
+
+      bucket.revenue += revenue;
+      bucket.cost += lineItemCost;
+    }
+
+    const daily = Array.from(dailyMap.entries()).map(([date, totals]) => {
+      const revenue = round2(totals.revenue);
+      const cost = round2(totals.cost);
+      const profit = round2(revenue - cost);
+      const marginPercent = revenue > 0 ? round2((profit / revenue) * 100) : 0;
+
+      return {
+        date,
+        revenue,
+        cost,
+        profit,
+        marginPercent,
+      };
+    });
+
+    const summary = daily.reduce<ProfitStatsSummary>(
+      (acc, day) => {
+        acc.revenue += day.revenue;
+        acc.cost += day.cost;
+        acc.profit += day.profit;
+        return acc;
+      },
+      { revenue: 0, cost: 0, profit: 0, marginPercent: 0 },
+    );
+
+    summary.revenue = round2(summary.revenue);
+    summary.cost = round2(summary.cost);
+    summary.profit = round2(summary.profit);
+    summary.marginPercent =
+      summary.revenue > 0
+        ? round2((summary.profit / summary.revenue) * 100)
+        : 0;
+
+    return {
+      periodDays: safeDays,
+      summary,
+      daily,
+    };
+  }
+
   /**
    * Validate stock availability for all line items
    */
@@ -536,8 +744,10 @@ export class SaleInvoiceService {
         variantId,
         quantity: (current?.quantity || 0) + quantity,
         itemName: item.itemName || current?.itemName,
+        brand: item.brand || current?.brand,
         thickness: item.thickness || current?.thickness,
         color: item.color || current?.color,
+        length: item.length || current?.length,
       });
     }
 
@@ -567,6 +777,7 @@ export class SaleInvoiceService {
         quantity: Math.abs(quantityDelta),
         direction: quantityDelta > 0 ? 'OUT' : 'IN',
         itemName: next?.itemName || previous?.itemName,
+        brand: next?.brand || previous?.brand,
         thickness: next?.thickness || previous?.thickness,
         color: next?.color || previous?.color,
       });
@@ -591,6 +802,7 @@ export class SaleInvoiceService {
           session,
           referenceId: invoiceNumber,
           transactionType,
+          expectedBrand: adjustment.brand,
           notes: this.buildStockMovementNote(
             actionLabel,
             invoiceNumber,
@@ -608,10 +820,15 @@ export class SaleInvoiceService {
   private buildStockMovementNote(
     actionLabel: string,
     invoiceNumber: string,
-    item: Pick<AggregatedInvoiceLineItem, 'itemName' | 'thickness' | 'color'>,
+    item: Pick<
+      AggregatedInvoiceLineItem,
+      'itemName' | 'thickness' | 'color' | 'length'
+    >,
   ): string {
     const productLabel = item.itemName || 'Variant';
-    const attributes = [item.thickness, item.color].filter(Boolean).join(' / ');
+    const attributes = [item.thickness, item.color, item.length]
+      .filter(Boolean)
+      .join(' / ');
 
     return attributes
       ? `${actionLabel} - ${invoiceNumber} - ${productLabel} (${attributes})`

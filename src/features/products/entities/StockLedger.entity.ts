@@ -33,6 +33,14 @@ export class StockLedger {
   @Prop({ required: true })
   sku!: string; // Variant SKU
 
+  @ApiProperty({ required: false })
+  @Prop()
+  brand?: string;
+
+  @ApiProperty({ required: false })
+  @Prop()
+  length?: string;
+
   @ApiProperty()
   @Prop({ required: true })
   quantityChange!: number; // Positive for inward, negative for outward
