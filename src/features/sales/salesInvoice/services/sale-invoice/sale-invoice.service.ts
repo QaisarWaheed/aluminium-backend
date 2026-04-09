@@ -22,6 +22,7 @@ import {
 import { Product } from '../../../../products/entities/Product.entity';
 import { StockMovementService } from '../../../../products/services/stock-movement.service';
 import { SessionService } from 'src/features/session/session.service';
+import { DraftService } from '../../../draft/services/draft.service';
 
 type SalesInvoiceCustomer = { name?: string } | Array<{ name?: string }> | null;
 
@@ -135,6 +136,7 @@ export class SaleInvoiceService {
     private readonly productService: ProductService,
     private readonly stockMovementService: StockMovementService,
     private readonly sessionService: SessionService,
+    private readonly draftService: DraftService,
   ) {}
 
   async findAll(
@@ -210,6 +212,10 @@ export class SaleInvoiceService {
     userId: string,
     allowNegativeStock = false,
   ): Promise<SalesInvoice> {
+    if (!data.totalNetAmount || data.totalNetAmount <= 0) {
+      throw new BadRequestException('Invoice total must be greater than zero.');
+    }
+
     const openSession =
       await this.sessionService.findOpenSessionForUser(userId);
 
@@ -350,6 +356,13 @@ export class SaleInvoiceService {
         throw new InternalServerErrorException(
           'Invoice transaction completed without returning an invoice',
         );
+      }
+
+      // Cleanup associated draft automatically upon final save
+      try {
+        await this.draftService.deleteByKey('sales-draft:Invoice', userId);
+      } catch (err) {
+        console.warn('Failed to cleanup draft after invoice creation:', err);
       }
 
       return invoice;

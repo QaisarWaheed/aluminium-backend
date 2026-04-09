@@ -4,6 +4,9 @@ import {
   IsOptional,
   IsNumber,
   IsArray,
+  IsDateString,
+  IsObject,
+  Min,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -18,14 +21,17 @@ export class CreatePurchaseOrderDto {
   poNumber: string;
 
   @ApiProperty()
+  @IsDateString()
   @IsOptional()
   poDate: Date;
 
   @ApiProperty()
+  @IsDateString()
   @IsOptional()
   expectedDelivery: Date;
 
   @ApiProperty({ type: Object })
+  @IsObject()
   @IsOptional()
   supplier: Supplier;
 
@@ -40,10 +46,12 @@ export class CreatePurchaseOrderDto {
   remarks: string;
 
   @IsNumber()
+  @Min(0)
   @IsOptional()
   subTotal: number;
 
   @IsNumber()
+  @Min(0)
   @IsOptional()
   total: number;
 }

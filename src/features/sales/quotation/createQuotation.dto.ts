@@ -7,6 +7,8 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  IsNotEmpty,
+  Min,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { Product } from 'src/features/products/entities/Product.entity';
@@ -15,15 +17,18 @@ import { Customer } from '../customer/entities/customer.entity';
 export class CreateQuotationDto {
   @ApiProperty()
   @IsDateString()
+  @IsNotEmpty()
   quotationDate!: Date;
 
   @ApiProperty()
   @IsString()
+  @IsNotEmpty()
   quotationNumber!: string;
 
   @ApiProperty()
   @IsArray()
   @IsObject({ each: true })
+  @IsNotEmpty()
   products!: Product[];
 
   @ApiProperty()
@@ -47,25 +52,30 @@ export class CreateQuotationDto {
   @ApiProperty()
   @IsOptional()
   @IsNumber()
+  @Min(0)
   subTotal?: number;
 
   @ApiProperty()
   @IsOptional()
   @IsNumber()
+  @Min(0)
   totalGrossAmount?: number;
 
   @ApiProperty()
   @IsOptional()
   @IsNumber()
+  @Min(0)
   totalDiscount?: number;
 
   @ApiProperty()
   @IsOptional()
   @IsNumber()
+  @Min(0)
   totalNetAmount?: number;
 
   @ApiProperty()
   @IsOptional()
   @IsNumber()
+  @Min(0)
   discount?: number;
 }

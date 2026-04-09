@@ -7,6 +7,8 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  IsNotEmpty,
+  Min,
 } from 'class-validator';
 import { Product } from 'src/features/products/entities/Product.entity';
 import type { paymentMethodType } from './salesReturn.entity';
@@ -15,10 +17,12 @@ import { Customer } from '../customer/entities/customer.entity';
 export class CreateSalesReturnDto {
   @ApiProperty()
   @IsString()
+  @IsNotEmpty()
   invoiceNumber: string;
 
   @ApiProperty()
   @IsDateString()
+  @IsNotEmpty()
   invoiceDate: Date;
 
   @ApiProperty()
@@ -29,6 +33,7 @@ export class CreateSalesReturnDto {
   @ApiProperty()
   @IsArray()
   @IsObject({ each: true })
+  @IsNotEmpty()
   products: Product[];
 
   @ApiProperty({ type: [Object], description: 'Array of customer objects' })
@@ -40,11 +45,13 @@ export class CreateSalesReturnDto {
   @ApiProperty()
   @IsOptional()
   @IsNumber()
+  @Min(0)
   discount: number;
 
   @ApiProperty()
   @IsOptional()
   @IsNumber()
+  @Min(0)
   length: number;
 
   @ApiProperty()
@@ -54,18 +61,22 @@ export class CreateSalesReturnDto {
 
   @IsOptional()
   @IsNumber()
+  @Min(0)
   subTotal: number;
 
   @IsOptional()
   @IsNumber()
+  @Min(0)
   totalGrossAmount: number;
 
   @IsOptional()
   @IsNumber()
+  @Min(0)
   totalDiscount: number;
 
   @IsOptional()
   @IsNumber()
+  @Min(0)
   totalNetAmount: number;
 
   // Accept frontend carry-over fields so whitelist validation doesn't reject them.

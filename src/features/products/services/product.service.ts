@@ -173,6 +173,18 @@ export class ProductService {
 
   async addProduct(product: CreateProductDto): Promise<Product> {
     try {
+      // Check if product with the same item name already exists
+      const existingProductWithName = await this.productModel
+        .findOne({
+          itemName: new RegExp(`^${escapeRegex(product.itemName)}$`, 'i'),
+        })
+        .exec();
+      if (existingProductWithName) {
+        throw new BadRequestException(
+          `Product with item name "${product.itemName}" already exists.`,
+        );
+      }
+
       // Get all existing SKUs to avoid collisions
       const existingProducts = await this.productModel.find().exec();
       const existingSkus = existingProducts
@@ -243,6 +255,26 @@ export class ProductService {
       const existingProduct = await this.productModel.findById(_id).exec();
       if (!existingProduct) {
         throw new NotFoundException(`Product ${_id} not found`);
+      }
+
+      if (
+        productUpdate.itemName &&
+        productUpdate.itemName !== existingProduct.itemName
+      ) {
+        const existingProductWithName = await this.productModel
+          .findOne({
+            itemName: new RegExp(
+              `^${escapeRegex(productUpdate.itemName)}$`,
+              'i',
+            ),
+            _id: { $ne: _id },
+          })
+          .exec();
+        if (existingProductWithName) {
+          throw new BadRequestException(
+            `Product with item name "${productUpdate.itemName}" already exists.`,
+          );
+        }
       }
 
       // If variants are being updated, handle SKU generation

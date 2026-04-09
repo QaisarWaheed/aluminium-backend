@@ -4,6 +4,7 @@ import {
   IsNumber,
   IsEnum,
   IsOptional,
+  Min,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { PaymentType } from '../entities/customer.entity';
@@ -36,6 +37,7 @@ export class CreateCustomerDto {
 
   @ApiProperty()
   @IsNumber()
+  @Min(0)
   @IsOptional()
   creditLimit: number;
 
