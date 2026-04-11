@@ -29,7 +29,7 @@ export type StockValuationRow = {
   length: string;
   availableStock: number;
   totalFeet: number;
-  salesRate: number;
+  purchasePrice: number;
   inventoryValue: number;
 };
 
@@ -466,12 +466,12 @@ export class ProductService {
 
       for (const variant of variants) {
         const availableStock = Number(variant.availableStock || 0);
-        const salesRate = Number(variant.salesRate || 0);
+        const purchasePrice = Number(variant.purchasePrice || 0);
         const length = String(variant.length || '0');
         const lengthNumber = Number(length);
         const totalFeet =
           availableStock * (Number.isFinite(lengthNumber) ? lengthNumber : 0);
-        const inventoryValue = availableStock * salesRate;
+        const inventoryValue = availableStock * purchasePrice;
 
         rows.push({
           productId: String(product._id),
@@ -484,7 +484,7 @@ export class ProductService {
           length,
           availableStock,
           totalFeet,
-          salesRate,
+          purchasePrice,
           inventoryValue,
         });
 
