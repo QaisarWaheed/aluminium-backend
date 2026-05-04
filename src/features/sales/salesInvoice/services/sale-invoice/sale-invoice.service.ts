@@ -22,6 +22,7 @@ import {
 import { Product } from '../../../../products/entities/Product.entity';
 import { StockMovementService } from '../../../../products/services/stock-movement.service';
 import { SessionService } from 'src/features/session/session.service';
+import { DraftService } from '../../../draft/services/draft.service';
 
 type SalesInvoiceCustomer = { name?: string } | Array<{ name?: string }> | null;
 
@@ -135,6 +136,7 @@ export class SaleInvoiceService {
     private readonly productService: ProductService,
     private readonly stockMovementService: StockMovementService,
     private readonly sessionService: SessionService,
+    private readonly draftService: DraftService,
   ) {}
 
   async findAll(
@@ -210,6 +212,10 @@ export class SaleInvoiceService {
     userId: string,
     allowNegativeStock = false,
   ): Promise<SalesInvoice> {
+    if (!data.totalNetAmount || data.totalNetAmount <= 0) {
+      throw new BadRequestException('Invoice total must be greater than zero.');
+    }
+
     const openSession =
       await this.sessionService.findOpenSessionForUser(userId);
 
@@ -350,6 +356,13 @@ export class SaleInvoiceService {
         throw new InternalServerErrorException(
           'Invoice transaction completed without returning an invoice',
         );
+      }
+
+      // Cleanup associated draft automatically upon final save
+      try {
+        await this.draftService.deleteByKey('sales-draft:Invoice', userId);
+      } catch (err) {
+        console.warn('Failed to cleanup draft after invoice creation:', err);
       }
 
       return invoice;
@@ -544,7 +557,7 @@ export class SaleInvoiceService {
       skuSet.size > 0
         ? await this.productModel
             .find({ 'variants.sku': { $in: Array.from(skuSet) } })
-            .select('variants.sku variants.purchasePrice variants.salesRate')
+            .select('variants.sku variants.purchasePrice')
             .lean()
             .exec()
         : [];
@@ -555,7 +568,6 @@ export class SaleInvoiceService {
         ? (product.variants as Array<{
             sku?: string;
             purchasePrice?: number;
-            salesRate?: number;
           }>)
         : [];
 
@@ -565,7 +577,7 @@ export class SaleInvoiceService {
         }
         const unitCost = Math.max(
           0,
-          toNumber(variant.purchasePrice) || toNumber(variant.salesRate),
+          toNumber(variant.purchasePrice),
         );
         skuCostMap.set(String(variant.sku), unitCost);
       }
@@ -603,24 +615,25 @@ export class SaleInvoiceService {
         if (quantity <= 0) {
           return sum;
         }
+          const length = Math.max(1, toNumber(item.length) || 1); // fallback to 1 if no length
 
-        const inlineCost =
-          toNumber(item.purchasePrice) || toNumber(item.costPrice);
-        const mappedCost = item.sku ? toNumber(skuCostMap.get(item.sku)) : 0;
-        const unitCost = Math.max(0, inlineCost || mappedCost);
+          const inlineCost =
+            toNumber(item.purchasePrice) || toNumber(item.costPrice);
+          const mappedCost = item.sku ? toNumber(skuCostMap.get(item.sku)) : 0;
+          const unitCost = Math.max(0, inlineCost || mappedCost);
 
-        return sum + unitCost * quantity;
-      }, 0);
+          return sum + unitCost * quantity * length;
+        }, 0);
 
-      bucket.revenue += revenue;
-      bucket.cost += lineItemCost;
-    }
+        bucket.revenue += revenue;
+        bucket.cost += lineItemCost;
+      }
 
-    const daily = Array.from(dailyMap.entries()).map(([date, totals]) => {
-      const revenue = round2(totals.revenue);
-      const cost = round2(totals.cost);
-      const profit = round2(revenue - cost);
-      const marginPercent = revenue > 0 ? round2((profit / revenue) * 100) : 0;
+      const daily = Array.from(dailyMap.entries()).map(([date, totals]) => {
+        const revenue = round2(totals.revenue);
+        const cost = round2(totals.cost);
+        const profit = round2(revenue - cost);
+        const marginPercent = revenue > 0 ? round2((profit / revenue) * 100) : 0;
 
       return {
         date,
