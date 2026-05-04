@@ -56,4 +56,11 @@ export class DraftService {
     if (userId && String(existing.userId) !== String(userId)) return null;
     return await this.draftModel.findByIdAndDelete(id).exec();
   }
+
+  async deleteByKey(key: string, userId?: string) {
+    if (userId) {
+      return await this.draftModel.findOneAndDelete({ key, userId }).exec();
+    }
+    return await this.draftModel.findOneAndDelete({ key }).exec();
+  }
 }

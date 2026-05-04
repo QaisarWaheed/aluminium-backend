@@ -33,9 +33,10 @@ export class CreateProductVariantDto {
   @IsNotEmpty()
   length: ProductVariantLength;
 
-  @ApiProperty()
+  @ApiProperty({ required: false })
   @IsNumber()
-  salesRate: number;
+  @IsOptional()
+  salesRate?: number;
 
   @ApiProperty({ required: false })
   @IsNumber()
