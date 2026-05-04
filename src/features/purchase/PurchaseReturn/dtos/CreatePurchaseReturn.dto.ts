@@ -4,6 +4,8 @@ import {
   IsOptional,
   IsNumber,
   IsArray,
+  IsDateString,
+  Min,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Product } from 'src/features/products/entities/Product.entity';
@@ -15,6 +17,7 @@ export class CreatePurchaseReturnDto {
   returnNumber: string;
 
   @ApiProperty()
+  @IsDateString()
   @IsOptional()
   returnDate: Date;
 
@@ -42,11 +45,13 @@ export class CreatePurchaseReturnDto {
 
   @ApiProperty()
   @IsNumber()
+  @Min(0)
   @IsOptional()
   subTotal: number;
 
   @ApiProperty()
   @IsNumber()
+  @Min(0)
   @IsOptional()
   total: number;
 }

@@ -11,11 +11,14 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  IsNotEmpty,
+  Min,
 } from 'class-validator';
 
 export class CreateSalesInvoiceDto {
   @ApiProperty()
   @IsString()
+  @IsNotEmpty()
   invoiceNumber: string;
 
   @ApiProperty({ type: String, format: 'date-time' })
@@ -46,37 +49,46 @@ export class CreateSalesInvoiceDto {
 
   @ApiProperty()
   @IsNumber()
+  @Min(0)
   length: number;
 
   @ApiProperty()
   @IsNumber()
+  @Min(0)
   discount: number;
 
   @ApiProperty()
   @IsNumber()
+  @Min(0)
   subTotal: number;
 
   @ApiProperty()
   @IsNumber()
+  @Min(0)
   amount: number;
 
   @ApiProperty()
   @IsNumber()
+  @Min(0)
   totalGrossAmount: number;
 
   @ApiProperty()
   @IsNumber()
+  @Min(0)
   totalDiscountAmount: number;
 
   @ApiProperty()
   @IsNumber()
+  @Min(0)
   totalNetAmount: number;
 
   @ApiProperty()
   @IsNumber()
+  @Min(0)
   receivedAmount: number;
 
   @ApiProperty()
   @IsNumber()
+  @Min(0)
   pendingAmount: number;
 }

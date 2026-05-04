@@ -10,8 +10,6 @@ import { ValidationPipe } from '@nestjs/common';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { ConfigService } from '@nestjs/config';
 import { UserService } from './features/user/services/user.service';
-import 'dotenv/config';
-
 async function ensureBootstrapAdmin(
   userService: UserService,
   configService: ConfigService,

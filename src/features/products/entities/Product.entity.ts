@@ -36,8 +36,8 @@ export class ProductVariant {
   length: ProductVariantLength;
 
   @ApiProperty()
-  @Prop({ required: true })
-  salesRate: number;
+  @Prop({ required: false })
+  salesRate?: number;
 
   @ApiProperty()
   @Prop({ required: true, default: 0 })

@@ -30,14 +30,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
     // Log the error for debugging (especially 500s)
     if (status >= 500) {
       this.logger.error(
-        `Http Status: ${status} Error Message: ${JSON.stringify(message)}`,
+        `Http Status: ${status} Path: ${request.url} Error Message: ${JSON.stringify(message)}`,
       );
       if (exception instanceof Error) {
         this.logger.error(exception.stack);
       }
     } else {
       this.logger.warn(
-        `Http Status: ${status} Error Message: ${JSON.stringify(message)}`,
+        `Http Status: ${status} Path: ${request.url} Error Message: ${JSON.stringify(message)}`,
       );
     }
 
